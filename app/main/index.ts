@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, screen } from 'electron';
 import squirrelStartup from 'electron-squirrel-startup';
 import { randomUUID } from 'node:crypto';
-import type { EngineUpdate, ReminderEvent, Result, RuntimeSnapshot } from '../shared/contracts';
+import type { EngineUpdate, PreviewResult, ReminderEvent, Result, RuntimeSnapshot } from '../shared/contracts';
 import { TimerEngine } from './engine/timer-engine';
 import { SettingsStore } from './settings/settings-store';
 import { validateSettings } from './settings/validation';
@@ -24,10 +24,13 @@ let startupWarnings: string[] = [];
 let commandQueue: Promise<unknown> = Promise.resolve();
 let appearanceKey = '';
 let settingsRequested = false;
+let currentPreviewId: string | null = null;
+let latestPreviewResult: PreviewResult | null = null;
+let previewSequence = 0;
 
 const presentedSnapshot = (): RuntimeSnapshot => {
   const snapshot = engine.getSnapshot();
-  return { ...snapshot, warnings: [...snapshot.warnings, ...startupWarnings], capabilities: { ...snapshot.capabilities, tray: tray?.available ? snapshot.capabilities.tray : { state: 'unsupported', reason: '当前桌面未提供可用托盘，主窗口保持可访问' } } };
+  return { ...snapshot, sequence: snapshot.sequence + previewSequence, currentPreviewId, latestPreviewResult: structuredClone(latestPreviewResult), warnings: [...snapshot.warnings, ...startupWarnings], capabilities: { ...snapshot.capabilities, tray: tray?.available ? snapshot.capabilities.tray : { state: 'unsupported', reason: '当前桌面未提供可用托盘，主窗口保持可访问' } } };
 };
 const hasConfirmedTray = (): boolean => !!tray?.available && engine?.getSnapshot().capabilities.tray.state === 'available';
 function publish(update?: EngineUpdate) {
@@ -108,7 +111,7 @@ function registerIPC() {
     if (!Number.isSafeInteger(fields.expectedRevision) || (fields.expectedRevision as number) < 0) throw new CommandError({ code: 'INVALID_COMMAND', message: '配置版本无效' });
     sample();
     const snapshot = presentedSnapshot();
-    const validation = validateSettings(fields.settings, snapshot.capabilities, snapshot.displays);
+    const validation = validateSettings(fields.settings, snapshot.capabilities, snapshot.displays, snapshot.settings);
     if (!validation.ok) return validation;
     if (fields.expectedRevision !== snapshot.settingsRevision) return { ok: false, error: { code: 'SETTINGS_CONFLICT', message: '设置已在其他窗口更新，请保留输入并重新应用', currentRevision: snapshot.settingsRevision } };
     const oldLogin = snapshot.settings.general.launchAtLogin;
@@ -134,13 +137,12 @@ function registerIPC() {
   });
   handle('preview', ['main'], async (_event, value) => {
     const fields = payload(value, ['settings']); checkEligible(true);
-    const snapshot = presentedSnapshot(); const validation = validateSettings(fields.settings, snapshot.capabilities, snapshot.displays);
+    const snapshot = presentedSnapshot(); const validation = validateSettings(fields.settings, snapshot.capabilities, snapshot.displays, snapshot.settings);
     if (!validation.ok) return validation;
     const settings = validation.value;
     const targets = settings.reminder.screenScope === 'primary' ? snapshot.displays.filter(display => display.primary) : settings.reminder.screenScope === 'selected' ? snapshot.displays.filter(display => settings.reminder.screenIds.includes(display.id)) : snapshot.displays;
     const event: ReminderEvent = { id: `preview-${randomUUID()}`, generation: 0, kind: 'preview', settings, screenIds: targets.map(display => display.id), createdAtMs: 0 };
-    await coordinator.present(event);
-    return { ok: true, value: event.id };
+    return coordinator.present(event);
   });
   handle('cancel-preview', ['main'], () => { if (coordinator.current?.kind === 'preview') coordinator.cancel(); return { ok: true, value: null }; });
   handle('overlay', ['overlay'], event => coordinator.getOverlay(event.sender.id), true);
@@ -187,8 +189,9 @@ else {
       return safe && (event.kind === 'preview' || snapshot.currentReminderId === event.id);
     }, (event, channels) => {
       if (event.kind === 'real') { sample(); publish(engine.settleReminder(event.id, event.generation, channels)); }
-      else { startupWarnings = [...startupWarnings.filter(message => !message.startsWith('预览：')), ...channels.filter(result => !result.success).map(result => `预览：${result.message}`)]; publish(); }
-    }, () => { void showMain(); });
+    }, () => { void showMain(); }, (id, result) => {
+      currentPreviewId = id; latestPreviewResult = result; previewSequence++; publish();
+    });
     tray = new TrayPresenter({ showMain: () => { void showMain(); }, settings: () => { void showMain(true); }, pause: minutes => { sample(); coordinator.cancel(); publish(engine.pause(minutes)); }, resume: () => { sample(); publish(engine.resume()); }, remindNow: () => { try { checkEligible(); publish(engine.remindNow()); } catch { publish(); } }, quit });
     tray.create(); sample();
     registerIPC();

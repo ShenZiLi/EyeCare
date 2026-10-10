@@ -21,7 +21,7 @@ import { ReminderCoordinator } from '../../app/main/reminders/coordinator';
 
 function snapshot(): RuntimeSnapshot {
   const available = { state: 'available' as const, reason: '' };
-  return { settings: defaultSettings(), settingsRevision: 0, sequence: 1, status: 'reminding', statusReason: '', elapsedActiveMs: 0, remainingMs: 0, pauseRemainingMs: null, snoozeRemainingMs: null, currentReminderId: 'real-1', theme: 'light', reduceMotion: false, reduceTransparency: false, capabilities: { input: available, mouse: available, lock: available, overlay: available, notification: available, tray: available, launchAtLogin: available }, displays: [], latestReminderResult: null, restConfirmedCount: 0, warnings: [] };
+  return { settings: defaultSettings(), settingsRevision: 0, sequence: 1, status: 'reminding', statusReason: '', elapsedActiveMs: 0, remainingMs: 0, pauseRemainingMs: null, snoozeRemainingMs: null, currentReminderId: 'real-1', currentPreviewId: null, latestPreviewResult: null, theme: 'light', reduceMotion: false, reduceTransparency: false, capabilities: { input: available, mouse: available, lock: available, overlay: available, notification: available, tray: available, launchAtLogin: available }, displays: [], latestReminderResult: null, restConfirmedCount: 0, warnings: [] };
 }
 const reminder = (visual: 'flash' | 'mask' | 'none' | 'notification' = 'flash', kind: 'real' | 'preview' = 'real'): ReminderEvent => { const settings = defaultSettings(); settings.reminder.visual = visual; settings.reminder.soundEnabled = true; return { id: 'real-1', generation: 1, kind, settings, screenIds: ['1', '2'], createdAtMs: 0 }; };
 const overlays = (coordinator: ReminderCoordinator): { id: number; state: OverlayState }[] => (fake.windows as { webContents: { id: number } }[]).map(window => ({ id: window.webContents.id, state: coordinator.getOverlay(window.webContents.id)! }));
@@ -159,5 +159,57 @@ describe('multi-screen reminder lifecycle', () => {
     expect(fake.windows).toHaveLength(3);
     expect(overlays(coordinator).filter(item => item.state.event.settings.reminder.soundEnabled)).toHaveLength(1);
     coordinator.cancel();
+  });
+  it('publishes preview start and automatic terminal result without real timer settlement', async () => {
+    const changed = vi.fn(); const finished = vi.fn(); const coordinator = new ReminderCoordinator(snapshot, () => true, finished, vi.fn(), changed);
+    const event = reminder('flash', 'preview'); event.settings.reminder.soundEnabled = false;
+    expect(await coordinator.present(event)).toEqual({ ok: true, value: event.id });
+    expect(changed).toHaveBeenCalledWith(event.id, null);
+    for (const item of overlays(coordinator)) { coordinator.ready(item.id, event.id, event.generation); coordinator.report(item.id, event.id, event.generation, [{ channel: 'visual', success: true, message: 'done' }]); }
+    expect(changed).toHaveBeenLastCalledWith(null, expect.objectContaining({ id: event.id, outcome: 'automatic' }));
+    expect(finished).not.toHaveBeenCalled();
+  });
+  it.each(['acknowledge', 'skip', 'snooze'] as const)('publishes preview %s terminal state without rest or real settlement', async action => {
+    const changed = vi.fn(); const finished = vi.fn(); const coordinator = new ReminderCoordinator(snapshot, () => true, finished, vi.fn(), changed);
+    const event = reminder('mask', 'preview'); await coordinator.present(event);
+    expect(coordinator.resolvePreview(event.id, event.generation, action)).toBe(true);
+    expect(changed).toHaveBeenLastCalledWith(null, expect.objectContaining({ id: event.id, outcome: action }));
+    expect(finished).not.toHaveBeenCalled(); expect(coordinator.current).toBeNull();
+  });
+  it('preview cancellation and replacement clear current identity once', async () => {
+    const changed = vi.fn(); const coordinator = new ReminderCoordinator(snapshot, () => true, vi.fn(), vi.fn(), changed);
+    await coordinator.present(reminder('mask', 'preview')); coordinator.cancel(); coordinator.cancel();
+    expect(changed).toHaveBeenCalledTimes(2);
+    expect(changed).toHaveBeenLastCalledWith(null, expect.objectContaining({ outcome: 'cancelled' }));
+    await coordinator.present(reminder('mask')); expect(changed).toHaveBeenCalledTimes(2); coordinator.cancel();
+  });
+  it('rejects suppressed or immediate failed preview starts with typed errors and terminal diagnostics', async () => {
+    const changed = vi.fn(); const finished = vi.fn(); const coordinator = new ReminderCoordinator(snapshot, () => false, finished, vi.fn(), changed);
+    expect(await coordinator.present(reminder('flash', 'preview'))).toMatchObject({ ok: false, error: { code: 'REMINDER_SUPPRESSED' } });
+    expect(changed).toHaveBeenLastCalledWith(null, expect.objectContaining({ outcome: 'failed' })); expect(finished).not.toHaveBeenCalled();
+    const unavailable = () => { const current = snapshot(); current.capabilities.overlay.state = 'unsupported'; return current; };
+    const denied = new ReminderCoordinator(unavailable, () => true, finished, vi.fn(), changed);
+    const event = reminder('flash', 'preview'); event.settings.reminder.soundEnabled = false;
+    expect(await denied.present(event)).toMatchObject({ ok: false, error: { code: 'REMINDER_DELIVERY_FAILED' } });
+    expect(changed).toHaveBeenLastCalledWith(null, expect.objectContaining({ outcome: 'failed' })); expect(denied.current).toBeNull();
+  });
+  it('cancellation during preview preparation publishes one terminal state and cannot resurrect its identity', async () => {
+    let release!: () => void; fake.loader = () => new Promise<void>(resolve => { release = resolve; });
+    const changed = vi.fn(); const finished = vi.fn(); const coordinator = new ReminderCoordinator(snapshot, () => true, finished, vi.fn(), changed);
+    const pending = coordinator.present(reminder('mask', 'preview'));
+    coordinator.cancel(); release();
+    expect(await pending).toMatchObject({ ok: false, error: { code: 'REMINDER_SUPPRESSED' } });
+    expect(changed).toHaveBeenCalledTimes(2); expect(changed).toHaveBeenLastCalledWith(null, expect.objectContaining({ outcome: 'cancelled' }));
+    expect(coordinator.current).toBeNull(); expect(finished).not.toHaveBeenCalled();
+  });
+  it('a real event created by the dispatch check cannot leave a stale active preview', async () => {
+    const changed = vi.fn(); const finished = vi.fn();
+    const coordinator = new ReminderCoordinator(snapshot, event => {
+      if (event.kind === 'preview') { coordinator.cancel(); void coordinator.present(reminder('mask')); }
+      return true;
+    }, finished, vi.fn(), changed);
+    expect(await coordinator.present(reminder('mask', 'preview'))).toMatchObject({ ok: false, error: { code: 'REMINDER_SUPPRESSED' } });
+    expect(changed).toHaveBeenCalledTimes(1); expect(changed).toHaveBeenLastCalledWith(null, expect.objectContaining({ outcome: 'cancelled' }));
+    expect(coordinator.current?.kind).toBe('real'); expect(finished).not.toHaveBeenCalled(); coordinator.cancel();
   });
 });

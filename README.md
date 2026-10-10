@@ -24,9 +24,12 @@ npm run check
 npm run package
 npm run test:e2e
 npm run make
+npm run verify:windows-runtime
 ```
 
 界面测试直接启动真实 Electron 应用，使用临时配置目录；测试前需要 `npm run package` 构建最新主进程及页面。`npm run probe:platform` 运行只读当前会话探针。`node_modules/electron/dist/electron.exe scripts/probe-platform-electron.cjs` 在 Windows 验证实际 Electron 状态；环境变量 `ELECTRON_RUN_AS_NODE` 必须不存在。
+
+`npm run verify:windows-runtime` 在 Windows 使用临时配置运行约136秒，两次按真实系统时钟到期的默认闪屏，包含主窗口隐藏/显示和遮罩清理检查；结果写入 `docs/windows-runtime-evidence.json`。测试期间会短暂显示两次柔和闪屏，不更改已安装应用的偏好。它不代替物理锁屏、睡眠、多显示器或长时间稳定性验收。
 
 GitHub 网络不可达时，构建命令可临时设置 `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/` 与 `ELECTRON_CUSTOM_DIR={{ version }}`；下载仍由 Electron 内置 checksum 校验。镜像不是运行时依赖。
 

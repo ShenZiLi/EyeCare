@@ -156,3 +156,68 @@ test('snapshot sequence and revision reject stale writes and unknown settings fi
   });
   expect(invalid.ok).toBe(false);
 });
+test('preview UI clears active state after flash and mask close without changing real timer/rest', async () => {
+  const initial = await snapshot();
+  const fixed = structuredClone(initial.settings); fixed.timer.mode = 'fixed'; fixed.timer.longIdleMinutes = 120;
+  expect((await save(initial.settingsRevision, fixed)).ok).toBe(true);
+  await expect.poll(async () => (await snapshot()).remainingMs).toBeLessThan(fixed.timer.intervalMinutes * 60000);
+  const beforeFlash = await snapshot();
+  await page.getByRole('button', { name: '提醒方式', exact: true }).click();
+  await page.getByRole('button', { name: '预览效果', exact: true }).click();
+  await page.getByRole('button', { name: '开始预览', exact: true }).click();
+  await expect(page.getByRole('button', { name: '结束预览', exact: true })).toBeVisible();
+  await expect.poll(async () => (await snapshot()).currentPreviewId).toBeNull();
+  await expect(page.getByRole('button', { name: '结束预览', exact: true })).toHaveCount(0);
+  await expect(page.getByText('预览已结束', { exact: true })).toBeVisible();
+  const before = await snapshot();
+  expect(before.remainingMs!).toBeLessThan(beforeFlash.remainingMs!);
+  await page.getByRole('radio', { name: /确认蒙版/ }).check();
+  await page.getByRole('button', { name: '预览效果', exact: true }).click();
+  const newWindow = desktop.waitForEvent('window');
+  await page.getByRole('button', { name: '开始预览', exact: true }).click();
+  const mask = await newWindow;
+  await expect(mask.getByRole('button', { name: '知道了', exact: true })).toBeVisible();
+  await mask.getByRole('button', { name: '知道了', exact: true }).click();
+  await expect.poll(async () => (await snapshot()).currentPreviewId).toBeNull();
+  await expect(page.getByRole('button', { name: '结束预览', exact: true })).toHaveCount(0);
+  await expect(page.getByText('预览已关闭，不影响实际计时', { exact: true })).toBeVisible();
+  const after = await snapshot();
+  expect(after.restConfirmedCount).toBe(before.restConfirmedCount);
+  expect(after.currentReminderId).toBeNull();
+  expect(after.settings.reminder.visual).toBe('flash');
+  expect(after.elapsedActiveMs).toBeGreaterThanOrEqual(before.elapsedActiveMs);
+  expect(after.remainingMs!).toBeLessThanOrEqual(before.remainingMs!);
+});
+test('failed preview preparation reports failure and never leaves an active preview control', async () => {
+  await desktop.evaluate(({ BrowserWindow }) => {
+    const original = BrowserWindow.prototype.loadFile;
+    (globalThis as unknown as { previewTestLoadFile?: typeof original }).previewTestLoadFile = original;
+    BrowserWindow.prototype.loadFile = function(this: Electron.BrowserWindow, ...args: Parameters<typeof original>) {
+      if (args[1]?.query?.surface === 'overlay') return Promise.reject(new Error('test preview page load failure'));
+      return original.apply(this, args);
+    };
+  });
+  try {
+    await page.getByRole('button', { name: '提醒方式', exact: true }).click();
+    await page.getByRole('button', { name: '预览效果', exact: true }).click();
+    await page.getByRole('button', { name: '开始预览', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: '预览当前提醒效果', exact: true });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('alert')).toContainText('提醒窗口创建失败');
+    const state = await snapshot();
+    expect(state.currentPreviewId).toBeNull();
+    expect(state.latestPreviewResult?.outcome).toBe('failed');
+    expect(state.currentReminderId).toBeNull();
+    expect(state.restConfirmedCount).toBe(0);
+    await page.getByRole('button', { name: '关闭对话框', exact: true }).click();
+    await expect(page.getByRole('button', { name: '结束预览', exact: true })).toHaveCount(0);
+    await expect(page.getByText('预览失败', { exact: true })).toBeVisible();
+    await expect(page.getByText('预览已启动', { exact: true })).toHaveCount(0);
+  } finally {
+    await desktop.evaluate(({ BrowserWindow }) => {
+      const state = globalThis as unknown as { previewTestLoadFile?: typeof BrowserWindow.prototype.loadFile };
+      if (state.previewTestLoadFile) BrowserWindow.prototype.loadFile = state.previewTestLoadFile;
+      delete state.previewTestLoadFile;
+    });
+  }
+});

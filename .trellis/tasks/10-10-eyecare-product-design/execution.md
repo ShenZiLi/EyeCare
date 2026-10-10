@@ -28,3 +28,7 @@ Rollback is by coherent new commits. Settings keep last-good backup; unknown loc
 ## Local-first delivery decision
 
 User confirmed no other native hosts/certificates currently available and requested local verifiable delivery first while retaining cross-platform acceptance. Final evidence:87 unit/integration assertions and8 real Electron/source/distribution/installed tests passed, Windows11 build28000 installer produced and installed. Remaining platform/release checks stay open in `docs/acceptance.md`; task remains in_progress.
+
+## 1.0.1 continuation
+
+Fixed independent appearance saves when the persisted activity source or selected display becomes unavailable, while still rejecting new invalid selections. Added main-owned preview identity/results and accurate terminal feedback/errors without affecting the real timer or rest count. Verified98 unit/integration assertions,8 source GUI regressions and2 distribution/installed checks; actual installed login-startup registration/read-back restored the original preference. Built and silently upgraded Windows1.0.1. The rebuilt version also passed two real one-minute cycles over approximately136 seconds, including hidden-main operation and overlay cleanup. Native multi-host/physical scenarios/signatures and extended stability remain open.

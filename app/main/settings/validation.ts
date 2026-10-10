@@ -9,7 +9,7 @@ const shape = {
 const object = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /** Validate the entire persisted/IPC payload, including unknown nested fields. */
-export function validateSettings(value: unknown, capabilities?: Capabilities, displays?: DisplayInfo[]): Result<SettingsV1> {
+export function validateSettings(value: unknown, capabilities?: Capabilities, displays?: DisplayInfo[], previous?: SettingsV1): Result<SettingsV1> {
   const fields: Record<string, string> = {};
   const fail = (code = 'INVALID_SETTINGS', message = '请检查设置中的标记项'): Result<SettingsV1> => ({ ok: false, error: { code, message, fields } });
   if (!object(value)) return fail();
@@ -55,8 +55,11 @@ export function validateSettings(value: unknown, capabilities?: Capabilities, di
   if (Object.keys(fields).length) return fail();
   if ((t.longIdleMinutes as number) * 60 < (t.activeWindowSeconds as number)) { fields['timer.longIdleMinutes'] = '长空闲阈值不能小于活动窗口'; return fail('INVALID_IDLE_WINDOW'); }
   if (r.visual === 'none' && (!r.soundEnabled || r.volumePercent === 0)) { fields['reminder.soundEnabled'] = '至少启用一种有效提醒'; return fail('NO_REMINDER_CHANNEL'); }
-  if (t.activitySource === 'mouse' && capabilities && capabilities.mouse.state !== 'available') { fields['timer.activitySource'] = capabilities.mouse.reason; return fail('CAPABILITY_UNAVAILABLE', '当前环境不能可靠区分鼠标活动'); }
-  if (r.screenScope === 'selected' && (!(r.screenIds as string[]).length || (displays && !(r.screenIds as string[]).some(id => displays.some(d => d.id === id))))) { fields['reminder.screenIds'] = '请选择至少一个可用屏幕'; return fail('INVALID_SCREEN_SELECTION'); }
+  const retainedMouse = previous?.timer.activitySource === 'mouse' && !(t.mode === 'active' && previous.timer.mode !== 'active');
+  if (t.activitySource === 'mouse' && capabilities && capabilities.mouse.state !== 'available' && !retainedMouse) { fields['timer.activitySource'] = capabilities.mouse.reason; return fail('CAPABILITY_UNAVAILABLE', '当前环境不能可靠区分鼠标活动'); }
+  const ids = r.screenIds as string[];
+  const hasNewUnavailableScreen = displays && ids.some(id => !displays.some(display => display.id === id) && !(previous?.reminder.screenScope === 'selected' && previous.reminder.screenIds.includes(id)));
+  if (r.screenScope === 'selected' && (!ids.length || hasNewUnavailableScreen)) { fields['reminder.screenIds'] = '请选择至少一个可用屏幕，已断开的原有选择可以保留'; return fail('INVALID_SCREEN_SELECTION'); }
   const settings = structuredClone(value) as unknown as SettingsV1;
   settings.reminder.message = settings.reminder.message.trim();
   return { ok: true, value: settings };

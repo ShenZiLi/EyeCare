@@ -1,0 +1,533 @@
+{
+  "recordedAt": "2026-10-10T13:28:29.205Z",
+  "platform": "win32",
+  "arch": "x64",
+  "nativeClock": "GetTickCount64",
+  "observations": [
+    {
+      "second": 0,
+      "nativeNowMs": 3927156,
+      "mainHidden": false,
+      "sequence": 3,
+      "status": "counting",
+      "remainingMs": 60000,
+      "version": "1.0.1",
+      "metrics": [
+        {
+          "type": "Browser",
+          "cpuPercent": 0,
+          "workingSetKB": 116500
+        },
+        {
+          "type": "Utility",
+          "cpuPercent": 0,
+          "workingSetKB": 48720
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0,
+          "workingSetKB": 90928
+        }
+      ],
+      "overlayCount": 0
+    },
+    {
+      "second": 10,
+      "nativeNowMs": 3937265,
+      "mainHidden": true,
+      "sequence": 13,
+      "status": "counting",
+      "remainingMs": 50125,
+      "version": "1.0.1",
+      "metrics": [
+        {
+          "type": "Browser",
+          "cpuPercent": 0.0467616637109906,
+          "workingSetKB": 119216
+        },
+        {
+          "type": "GPU",
+          "cpuPercent": 0,
+          "workingSetKB": 102004
+        },
+        {
+          "type": "Utility",
+          "cpuPercent": 0.009462101924509109,
+          "workingSetKB": 50760
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.04943895661201165,
+          "workingSetKB": 98772
+        }
+      ],
+      "overlayCount": 0
+    },
+    {
+      "second": 20,
+      "nativeNowMs": 3947359,
+      "mainHidden": true,
+      "sequence": 23,
+      "status": "counting",
+      "remainingMs": 40078,
+      "version": "1.0.1",
+      "metrics": [
+        {
+          "type": "Browser",
+          "cpuPercent": 0.014865403055369377,
+          "workingSetKB": 119444
+        },
+        {
+          "type": "GPU",
+          "cpuPercent": 0.07486481117970607,
+          "workingSetKB": 99220
+        },
+        {
+          "type": "Utility",
+          "cpuPercent": 0.000034691763679705814,
+          "workingSetKB": 50764
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.06675850400686488,
+          "workingSetKB": 97076
+        }
+      ],
+      "overlayCount": 0
+    },
+    {
+      "second": 30,
+      "nativeNowMs": 3957437,
+      "mainHidden": true,
+      "sequence": 33,
+      "status": "counting",
+      "remainingMs": 30000,
+      "version": "1.0.1",
+      "metrics": [
+        {
+          "type": "Browser",
+          "cpuPercent": 0.02605774767828419,
+          "workingSetKB": 119280
+        },
+        {
+          "type": "GPU",
+          "cpuPercent": 0.08386452962914731,
+          "workingSetKB": 99240
+        },
+        {
+          "type": "Utility",
+          "cpuPercent": 0.0005711247524244452,
+          "workingSetKB": 50708
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.08289741050167541,
+          "workingSetKB": 98160
+        }
+      ],
+      "overlayCount": 0
+    },
+    {
+      "second": 40,
+      "nativeNowMs": 3967546,
+      "mainHidden": true,
+      "sequence": 43,
+      "status": "counting",
+      "remainingMs": 19922,
+      "version": "1.0.1",
+      "metrics": [
+        {
+          "type": "Browser",
+          "cpuPercent": 0.023641504702293554,
+          "workingSetKB": 119276
+        },
+        {
+          "type": "GPU",
+          "cpuPercent": 0.08877376847255324,
+          "workingSetKB": 99240
+        },
+        {
+          "type": "Utility",
+          "cpuPercent": 0,
+          "workingSetKB": 50708
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.08625302987376837,
+          "workingSetKB": 100572
+        }
+      ],
+      "overlayCount": 0
+    },
+    {
+      "second": 50,
+      "nativeNowMs": 3977609,
+      "mainHidden": true,
+      "sequence": 53,
+      "status": "counting",
+      "remainingMs": 9859,
+      "version": "1.0.1",
+      "metrics": [
+        {
+          "type": "Browser",
+          "cpuPercent": 0.014848791489823007,
+          "workingSetKB": 119540
+        },
+        {
+          "type": "GPU",
+          "cpuPercent": 0.08540090812634409,
+          "workingSetKB": 99240
+        },
+        {
+          "type": "Utility",
+          "cpuPercent": 0,
+          "workingSetKB": 50708
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.07302968520160293,
+          "workingSetKB": 101268
+        }
+      ],
+      "overlayCount": 0
+    },
+    {
+      "second": 60,
+      "nativeNowMs": 3987703,
+      "mainHidden": true,
+      "sequence": 67,
+      "status": "reminding",
+      "remainingMs": 59687,
+      "version": "1.0.1",
+      "metrics": [
+        {
+          "type": "Browser",
+          "cpuPercent": 0.06322869276931503,
+          "workingSetKB": 122136
+        },
+        {
+          "type": "GPU",
+          "cpuPercent": 0.11680294805548791,
+          "workingSetKB": 100312
+        },
+        {
+          "type": "Utility",
+          "cpuPercent": 0.0009048203312467979,
+          "workingSetKB": 50648
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.08620642683314039,
+          "workingSetKB": 100752
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0,
+          "workingSetKB": 98280
+        }
+      ],
+      "overlayCount": 1
+    },
+    {
+      "second": 70,
+      "nativeNowMs": 3997812,
+      "mainHidden": true,
+      "sequence": 80,
+      "status": "counting",
+      "remainingMs": 52032,
+      "version": "1.0.1",
+      "metrics": [
+        {
+          "type": "Browser",
+          "cpuPercent": 0.0332788350765057,
+          "workingSetKB": 120384
+        },
+        {
+          "type": "GPU",
+          "cpuPercent": 0.13740908855514422,
+          "workingSetKB": 100124
+        },
+        {
+          "type": "Utility",
+          "cpuPercent": 0.0032333752806258035,
+          "workingSetKB": 50684
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.0855710413392679,
+          "workingSetKB": 100480
+        }
+      ],
+      "overlayCount": 0
+    },
+    {
+      "second": 80,
+      "nativeNowMs": 4007937,
+      "mainHidden": true,
+      "sequence": 90,
+      "status": "counting",
+      "remainingMs": 41969,
+      "version": "1.0.1",
+      "metrics": [
+        {
+          "type": "Browser",
+          "cpuPercent": 0.01689941022490887,
+          "workingSetKB": 120620
+        },
+        {
+          "type": "GPU",
+          "cpuPercent": 0.08620133490053454,
+          "workingSetKB": 100124
+        },
+        {
+          "type": "Utility",
+          "cpuPercent": 0.00031203758335437737,
+          "workingSetKB": 50684
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.08596926130851706,
+          "workingSetKB": 100896
+        }
+      ],
+      "overlayCount": 0
+    },
+    {
+      "second": 90,
+      "nativeNowMs": 4018000,
+      "mainHidden": false,
+      "sequence": 100,
+      "status": "counting",
+      "remainingMs": 31922,
+      "version": "1.0.1",
+      "metrics": [
+        {
+          "type": "Browser",
+          "cpuPercent": 0.019850818074388966,
+          "workingSetKB": 120248
+        },
+        {
+          "type": "GPU",
+          "cpuPercent": 0.08819268727861533,
+          "workingSetKB": 100560
+        },
+        {
+          "type": "Utility",
+          "cpuPercent": 0.00017396343884961457,
+          "workingSetKB": 50684
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.07767798903566432,
+          "workingSetKB": 99352
+        }
+      ],
+      "overlayCount": 0
+    },
+    {
+      "second": 100,
+      "nativeNowMs": 4028093,
+      "mainHidden": false,
+      "sequence": 110,
+      "status": "counting",
+      "remainingMs": 21844,
+      "version": "1.0.1",
+      "metrics": [
+        {
+          "type": "Browser",
+          "cpuPercent": 0.019969551445613378,
+          "workingSetKB": 120360
+        },
+        {
+          "type": "GPU",
+          "cpuPercent": 0.034857352139375554,
+          "workingSetKB": 102528
+        },
+        {
+          "type": "Utility",
+          "cpuPercent": 0.00014849059312092578,
+          "workingSetKB": 50684
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.02919325060757401,
+          "workingSetKB": 99668
+        }
+      ],
+      "overlayCount": 0
+    },
+    {
+      "second": 110,
+      "nativeNowMs": 4038187,
+      "mainHidden": false,
+      "sequence": 120,
+      "status": "counting",
+      "remainingMs": 11782,
+      "version": "1.0.1",
+      "metrics": [
+        {
+          "type": "Browser",
+          "cpuPercent": 0.016447364075852646,
+          "workingSetKB": 120620
+        },
+        {
+          "type": "GPU",
+          "cpuPercent": 0.022579854087414267,
+          "workingSetKB": 101260
+        },
+        {
+          "type": "Utility",
+          "cpuPercent": 0.00009741953806627171,
+          "workingSetKB": 50684
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.03205432720538081,
+          "workingSetKB": 100900
+        }
+      ],
+      "overlayCount": 0
+    },
+    {
+      "second": 120,
+      "nativeNowMs": 4048281,
+      "mainHidden": false,
+      "sequence": 130,
+      "status": "counting",
+      "remainingMs": 1735,
+      "version": "1.0.1",
+      "metrics": [
+        {
+          "type": "Browser",
+          "cpuPercent": 0.024281306514592312,
+          "workingSetKB": 120136
+        },
+        {
+          "type": "GPU",
+          "cpuPercent": 0.021890465053006857,
+          "workingSetKB": 101168
+        },
+        {
+          "type": "Utility",
+          "cpuPercent": 0.0002666544352359779,
+          "workingSetKB": 50684
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.02722517286804227,
+          "workingSetKB": 100456
+        }
+      ],
+      "overlayCount": 0
+    },
+    {
+      "second": 130,
+      "nativeNowMs": 4058375,
+      "mainHidden": false,
+      "sequence": 147,
+      "status": "counting",
+      "remainingMs": 54016,
+      "version": "1.0.1",
+      "metrics": [
+        {
+          "type": "Browser",
+          "cpuPercent": 0.07700137629609148,
+          "workingSetKB": 120864
+        },
+        {
+          "type": "GPU",
+          "cpuPercent": 0.141067539530745,
+          "workingSetKB": 111352
+        },
+        {
+          "type": "Utility",
+          "cpuPercent": 0.001252032879920576,
+          "workingSetKB": 50676
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.03547588963435611,
+          "workingSetKB": 101300
+        }
+      ],
+      "overlayCount": 0
+    }
+  ],
+  "reminders": [
+    {
+      "id": "14c6e673-782c-4b38-95b5-8a1329192587",
+      "createdAtMs": 3987359,
+      "mainHidden": true,
+      "elapsedFromSaveMs": 60203
+    },
+    {
+      "id": "0d9d294f-c56c-4611-b527-5e784fa71498",
+      "createdAtMs": 4049734,
+      "mainHidden": false,
+      "elapsedFromSaveMs": 122578
+    }
+  ],
+  "results": [
+    {
+      "id": "14c6e673-782c-4b38-95b5-8a1329192587",
+      "outcome": "automatic",
+      "channels": [
+        {
+          "channel": "visual",
+          "success": true,
+          "message": "所有屏幕闪屏已结束"
+        }
+      ]
+    },
+    {
+      "id": "0d9d294f-c56c-4611-b527-5e784fa71498",
+      "outcome": "automatic",
+      "channels": [
+        {
+          "channel": "visual",
+          "success": true,
+          "message": "所有屏幕闪屏已结束"
+        }
+      ]
+    }
+  ],
+  "complete": true,
+  "startBeforeMs": 3927140,
+  "startAfterMs": 3927156,
+  "configuration": {
+    "schemaVersion": 1,
+    "timer": {
+      "mode": "fixed",
+      "intervalMinutes": 1,
+      "activitySource": "combined",
+      "activeWindowSeconds": 60,
+      "longIdleMinutes": 120
+    },
+    "reminder": {
+      "visual": "flash",
+      "soundEnabled": false,
+      "soundId": "gentle",
+      "volumePercent": 50,
+      "flashOpacityPercent": 20,
+      "flashColor": "theme-derived",
+      "fadeInMs": 600,
+      "holdMs": 800,
+      "fadeOutMs": 600,
+      "snoozeMinutes": 5,
+      "screenScope": "all",
+      "screenIds": [],
+      "message": "该让眼睛休息一下了"
+    },
+    "appearance": {
+      "theme": "system",
+      "showTrayCountdown": true,
+      "reduceMotion": "system",
+      "reduceTransparency": "system"
+    },
+    "general": {
+      "launchAtLogin": false
+    }
+  },
+  "nativeLongRunVerified": false,
+  "durationMs": 136250
+}

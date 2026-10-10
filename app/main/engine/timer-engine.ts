@@ -71,6 +71,7 @@ export class TimerEngine {
       pauseRemainingMs: typeof this.pauseUntil === 'number' ? Math.max(0, this.pauseUntil - this.now) : null,
       snoozeRemainingMs: this.snoozeUntil === null ? null : Math.max(0, this.snoozeUntil - this.now),
       currentReminderId: this.reminder?.id ?? null,
+      currentPreviewId: null, latestPreviewResult: null,
       theme: this.settings.appearance.theme === 'system' ? s?.systemTheme ?? 'light' : this.settings.appearance.theme,
       reduceMotion: this.settings.appearance.reduceMotion === 'on' || !!s?.reduceMotion,
       reduceTransparency: this.settings.appearance.reduceTransparency === 'on' || !!s?.reduceTransparency,

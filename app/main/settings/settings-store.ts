@@ -45,7 +45,7 @@ export class SettingsStore {
   save(expectedRevision: number, value: unknown, capabilities?: Capabilities, displays?: DisplayInfo[]): Promise<Result<Stored>> {
     const run = async (): Promise<Result<Stored>> => {
       if (expectedRevision !== this.current.revision) return { ok: false, error: { code: 'SETTINGS_CONFLICT', message: '设置已在其他窗口更新，请重新检查后保存', currentRevision: this.current.revision } };
-      const parsed = validateSettings(value, capabilities, displays);
+      const parsed = validateSettings(value, capabilities, displays, this.current.settings);
       if (!parsed.ok) return parsed;
       const next = { settings: parsed.value, revision: this.current.revision + 1 };
       try {

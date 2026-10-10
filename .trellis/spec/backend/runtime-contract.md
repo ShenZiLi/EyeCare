@@ -96,6 +96,7 @@ Persistence: versioned settings in userData/settings.json, atomic replace and la
 | corrupt settings on startup | recover last-known-good/default, show recovery message |
 | locked/sleeping/unknown lock or critical fault | REMINDER_SUPPRESSED; no visual or sound effect |
 | existing reminder or preview collision | REMINDER_BUSY; do not create another event |
+| preview preparation or all-channel delivery fails | REMINDER_DELIVERY_FAILED and terminal preview result; clear preview ID without resetting the real timer |
 | stale/duplicate resolve | STALE_REMINDER or idempotent no-op; no reset, no rest event |
 | obsolete/duplicate platform sample | ignore; no double integration |
 | all channels failed | settle one cycle, report error, no immediate retry |
@@ -131,6 +132,8 @@ Wrong: no lock measurement means unlocked. Correct: unknown lock state blocks ne
 
 - `new TimerEngine(settings, revision, nowMs?)` is pure; `acceptSample` and commands return `EngineUpdate`. `getSnapshot` clones effective state. Fresh sampling precedes renderer commands.
 - `new SettingsStore(userDataDirectory)`, `load(): Promise<LoadedSettings>` and `save(expectedRevision, unknownPayload, capabilities?, displays?)` own the disk envelope `{settings, revision}`. Temp files use exclusive create, sync and rename; backups hold the previous valid envelope. Saves serialize and validate before writing.
+- Availability checks are transition-aware: `validateSettings(value, capabilities?, displays?, previous?)` retains unchanged, structurally valid effective source/screen intent while unavailable, so theme/countdown updates remain independent. New unavailable selections, activating an unavailable mouse-only source, empty screen lists and invalid structural values still fail. Main uses its effective baseline; the store uses its own revision-checked baseline.
+- `currentPreviewId` and `latestPreviewResult` are ephemeral main-owned snapshot fields. Preview start, automatic end, mask action, suppression/cancellation and failure publish through one coordinator lifecycle callback. Preview commands return a typed failure when startup cannot present; preview transitions never reset engine time or emit rest confirmation. Main snapshot sequence includes preview transitions so subscribers can observe them even when timer state is unchanged.
 - Overlay IPC has fixed readiness, playback-start and per-channel completion commands. `overlaySoundStarted(id, generation)` signals successful `audio.play()` before submitting a combined silent notification. Main validates sender/frame, exact registered surface URL, payload, immutable identity, ready state and sound ownership. Renderer-origin reports cannot resolve another screen's channels.
 - Vite main/preload entry filenames are explicitly `main.js` / `preload.js`; both source entries are named `index.ts` and would otherwise collide. Packager keeps `.vite`, production native dependencies and resources. Koffi stays external and Forge unpacks native modules.
 - Never infer Linux tray support from constructing an Electron Tray. Unknown capability keeps an accessible main window. Windows/macOS template or theme-specific icons follow system tray appearance; disabling numbers restores the eye icon without changing the engine.

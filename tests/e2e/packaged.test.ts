@@ -2,6 +2,7 @@ import { test, expect, _electron as electron } from '@playwright/test';
 import path from 'node:path';
 import { existsSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
+import { version } from '../../package.json';
 
 test('built distribution launches with packaged native dependencies and isolated renderer', async () => {
   test.skip(process.platform !== 'win32', 'Actual Windows distribution evidence only');
@@ -23,7 +24,7 @@ test('built distribution launches with packaged native dependencies and isolated
 
 test('installed Windows application starts, reads native state and exits cleanly', async () => {
   test.skip(process.platform !== 'win32', 'Actual Windows installation evidence only');
-  const executable = path.join(process.env.LOCALAPPDATA ?? '', 'EyeCare/app-1.0.0/eyecare.exe');
+  const executable = path.join(process.env.LOCALAPPDATA ?? '', `EyeCare/app-${version}/eyecare.exe`);
   test.skip(!existsSync(executable), 'Run the generated installer before installed-app acceptance');
   const environment = Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[0] !== 'ELECTRON_RUN_AS_NODE' && entry[0] !== 'EYECARE_TEST_USER_DATA'));
   const desktop = await electron.launch({ executablePath: executable, args: [], env: environment });
@@ -36,6 +37,18 @@ test('installed Windows application starts, reads native state and exits cleanly
     expect(state.capabilities.input.state).toBe('available');
     expect(state.settings.appearance.theme).toBe('system');
     expect(state.settings.reminder.soundEnabled).toBe(false);
+    const original = structuredClone(state.settings);
+    try {
+      const enabled = structuredClone(original);
+      enabled.general.launchAtLogin = true;
+      const saved = await page.evaluate(async settings => { const current = await window.eyeCare.getSnapshot(); return window.eyeCare.saveSettings(current.settingsRevision, settings); }, enabled);
+      expect(saved.ok).toBe(true);
+      expect(await desktop.evaluate(({ app }) => app.getLoginItemSettings().openAtLogin)).toBe(true);
+    } finally {
+      const restored = await page.evaluate(async settings => { const current = await window.eyeCare.getSnapshot(); return window.eyeCare.saveSettings(current.settingsRevision, settings); }, original);
+      expect(restored.ok).toBe(true);
+      expect(await desktop.evaluate(({ app }) => app.getLoginItemSettings().openAtLogin)).toBe(original.general.launchAtLogin);
+    }
     const samples = [];
     for (let index = 0; index < 3; index++) {
       await new Promise(resolve => setTimeout(resolve, 2000));

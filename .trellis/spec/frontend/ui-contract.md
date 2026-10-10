@@ -75,6 +75,7 @@ Wrong: a close button and “知道了” have identical rest semantics. Correct
 ## Implemented conventions
 
 - `App` owns the form `draft`, effective `base` and expected `revision`; snapshots never overwrite dirty input. Invalid saves and version conflicts retain it; reapply explicitly uses latest effective revision. Immediate appearance commits merge only theme/countdown into existing drafts.
+- Preview active controls and terminal feedback derive from shared `currentPreviewId` / `latestPreviewResult`; never maintain a local boolean that stays active after the coordinator closes its windows. Automatic completion, acknowledgement, Escape, cancellation and failure each update the main page. Failed startup stays visible in the preview dialog and cannot show success feedback.
 - `Overlay` mounts an event keyed by ID/generation. Creation-time parameters start once after `overlayReady`; appearance messages update tokens without restarting audio or flash. Audio `play()` resolution sends `overlaySoundStarted`; end/error sends one channel result. Window destruction cancels animation, timers and audio.
 - `Field` and `Toggle` use visible wrapping labels; numeric controls keep units and preserve invalid/empty input. Sidebar icon-only mode keeps explicit accessible names.
 - `Modal` and masks trap Tab/Shift+Tab, offer button exits, support Escape and restore local focus. Saved scroll padding and control scroll margins reserve 132px against the sticky save bar so focus is not obscured.

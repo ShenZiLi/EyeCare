@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it } from 'vitest';
 import { SettingsStore } from '../../app/main/settings/settings-store';
-import { defaultSettings } from '../../app/shared/contracts';
+import { defaultSettings, type Capabilities, type DisplayInfo } from '../../app/shared/contracts';
 
 const directories: string[] = [];
 async function directory() { const path = await mkdtemp(join(tmpdir(), 'eyecare-settings-')); directories.push(path); return path; }
@@ -49,5 +49,22 @@ describe('SettingsStore real filesystem persistence', () => {
     const store = new SettingsStore(path); await store.load();
     expect(await store.save(0, defaultSettings())).toMatchObject({ ok: false, error: { code: 'SETTINGS_WRITE_FAILED' } });
     expect(await store.save(0, defaultSettings())).toMatchObject({ ok: false, error: { code: 'SETTINGS_WRITE_FAILED' } });
+  });
+  it('persists independent appearance changes after saved source/screen intent becomes unavailable', async () => {
+    const dir = await directory(); const store = new SettingsStore(dir); await store.load();
+    const saved = defaultSettings(); saved.timer.activitySource = 'mouse'; saved.reminder.screenScope = 'selected'; saved.reminder.screenIds = ['external'];
+    const available = { mouse: { state: 'available', reason: '' } } as Capabilities;
+    const displays = [{ id: 'external' }] as DisplayInfo[];
+    expect((await store.save(0, saved, available, displays)).ok).toBe(true);
+    const unavailable = { mouse: { state: 'error', reason: 'disconnected' } } as Capabilities;
+    const theme = structuredClone(saved); theme.appearance.theme = 'dark';
+    expect((await store.save(1, theme, unavailable, [])).ok).toBe(true);
+    const countdown = structuredClone(theme); countdown.appearance.showTrayCountdown = false;
+    expect((await store.save(2, countdown, unavailable, [])).ok).toBe(true);
+    const reloaded = await new SettingsStore(dir).load();
+    expect(reloaded).toMatchObject({ revision: 3, settings: { timer: { activitySource: 'mouse' }, reminder: { screenIds: ['external'] }, appearance: { theme: 'dark', showTrayCountdown: false } } });
+    const invalid = structuredClone(countdown); invalid.reminder.screenIds = ['new-missing'];
+    expect((await store.save(3, invalid, unavailable, [])).ok).toBe(false);
+    invalid.reminder.screenIds = []; expect((await store.save(3, invalid, unavailable, [])).ok).toBe(false);
   });
 });

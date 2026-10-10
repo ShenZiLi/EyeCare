@@ -1,12 +1,12 @@
 import { BrowserWindow, Notification, screen } from 'electron';
-import type { ChannelResult, OverlayState, ReminderAction, ReminderEvent, RuntimeSnapshot } from '../../shared/contracts';
+import type { ChannelResult, OverlayState, PreviewResult, ReminderAction, ReminderEvent, Result, RuntimeSnapshot } from '../../shared/contracts';
 import { loadSurface, windowOptions } from '../windows';
 
 interface OverlayWindow { window: BrowserWindow; state: OverlayState; displayId: number | null; ready: boolean; visualResult?: ChannelResult }
-interface Session { event: ReminderEvent; windows: Map<number, OverlayWindow>; channels: ChannelResult[]; timers: Set<ReturnType<typeof setTimeout>>; notification?: Notification; notificationSubmitted: boolean; cancelled: boolean; creating: boolean; soundOwner: number | null }
+interface Session { event: ReminderEvent; windows: Map<number, OverlayWindow>; channels: ChannelResult[]; timers: Set<ReturnType<typeof setTimeout>>; notification?: Notification; notificationSubmitted: boolean; cancelled: boolean; creating: boolean; soundOwner: number | null; result: PreviewResult | null }
 export class ReminderCoordinator {
   private session: Session | null = null;
-  constructor(private readonly snapshot: () => RuntimeSnapshot, private readonly canPresent: (event: ReminderEvent) => boolean, private readonly finished: (event: ReminderEvent, results: ChannelResult[]) => void, private readonly openHome: () => void) {}
+  constructor(private readonly snapshot: () => RuntimeSnapshot, private readonly canPresent: (event: ReminderEvent) => boolean, private readonly finished: (event: ReminderEvent, results: ChannelResult[]) => void, private readonly openHome: () => void, private readonly previewChanged?: (id: string | null, result: PreviewResult | null) => void) {}
 
   get current(): ReminderEvent | null { return this.session?.event ?? null; }
   get channels(): ChannelResult[] { return structuredClone(this.session?.channels ?? []); }
@@ -16,11 +16,13 @@ export class ReminderCoordinator {
     const timer = setTimeout(() => { session.timers.delete(timer); if (this.session === session && !session.cancelled) fn(); }, ms);
     session.timers.add(timer);
   }
-  async present(event: ReminderEvent): Promise<void> {
-    if (this.session) return;
-    const session: Session = { event: structuredClone(event), windows: new Map(), channels: [], timers: new Set(), notificationSubmitted: false, cancelled: false, creating: true, soundOwner: null };
+  async present(event: ReminderEvent): Promise<Result<string>> {
+    if (this.session) return { ok: false, error: { code: 'REMINDER_BUSY', message: '已有提醒或预览正在呈现' } };
+    const session: Session = { event: structuredClone(event), windows: new Map(), channels: [], timers: new Set(), notificationSubmitted: false, cancelled: false, creating: true, soundOwner: null, result: null };
     this.session = session;
-    if (!this.canPresent(event)) { this.complete(session, [{ channel: 'visual', success: false, message: '当前系统状态禁止提醒' }]); return; }
+    if (!this.canPresent(event)) { this.complete(session, [{ channel: 'visual', success: false, message: '当前系统状态禁止提醒' }]); return { ok: false, error: { code: 'REMINDER_SUPPRESSED', message: '当前系统状态禁止提醒' } }; }
+    if (this.session !== session || session.cancelled) return { ok: false, error: { code: 'REMINDER_SUPPRESSED', message: '提醒在准备期间已取消' } };
+    if (event.kind === 'preview') this.previewChanged?.(event.id, null);
     // Install before the first async load; one ready display cannot remove protection for the rest.
     this.later(session, () => {
       if (session.creating || [...session.windows.values()].some(item => !item.ready)) this.fail(session, '提醒窗口未就绪，已安全关闭');
@@ -53,6 +55,9 @@ export class ReminderCoordinator {
     if (this.session === session && needsOverlay && snapshot.capabilities.overlay.state === 'available') await this.refreshDisplays();
     this.aggregateVisual(session);
     this.maybeComplete(session);
+    if (session.result?.outcome === 'failed') return { ok: false, error: { code: 'REMINDER_DELIVERY_FAILED', message: session.result.channels.filter(result => !result.success).map(result => result.message).join('；') || '预览未能呈现' } };
+    if (session.result?.outcome === 'cancelled') return { ok: false, error: { code: 'REMINDER_SUPPRESSED', message: '提醒在准备期间已取消' } };
+    return { ok: true, value: event.id };
   }
   private submitNotification(session: Session) {
     if (session.cancelled || this.session !== session || !session.notification || session.notificationSubmitted) return;
@@ -180,12 +185,19 @@ export class ReminderCoordinator {
   private complete(session: Session, results: ChannelResult[]) {
     if (session.cancelled || this.session !== session) return;
     const event = session.event;
-    this.cancel(event.id);
-    this.finished(event, results);
+    session.result = { id: event.id, outcome: results.some(result => result.success) ? 'automatic' : 'failed', channels: structuredClone(results) };
+    this.teardown(session);
+    if (event.kind === 'preview') this.previewChanged?.(null, session.result);
+    else this.finished(event, results);
   }
   cancel(id?: string) {
     const session = this.session;
     if (!session || (id && session.event.id !== id)) return;
+    session.result = { id: session.event.id, outcome: 'cancelled', channels: structuredClone(session.channels) };
+    this.teardown(session);
+    if (session.event.kind === 'preview') this.previewChanged?.(null, session.result);
+  }
+  private teardown(session: Session) {
     session.cancelled = true;
     this.session = null;
     session.timers.forEach(timer => clearTimeout(timer));
@@ -193,9 +205,12 @@ export class ReminderCoordinator {
     // Submitted notifications may survive settlement; their clicks only open overview.
     if (session.notification && !session.channels.some(result => result.channel === 'visual' && result.success)) session.notification.close();
   }
-  resolvePreview(id: string, generation: number, _action: ReminderAction): boolean {
+  resolvePreview(id: string, generation: number, action: ReminderAction): boolean {
     if (!this.matches(id, generation) || this.session?.event.kind !== 'preview') return false;
-    this.cancel(id);
+    const session = this.session;
+    session.result = { id, outcome: action, channels: structuredClone(session.channels) };
+    this.teardown(session);
+    this.previewChanged?.(null, session.result);
     return true;
   }
   syncAppearance() {

@@ -29,14 +29,16 @@
     ".trellis/spec/backend/runtime-contract.md",
     ".trellis/spec/frontend/ui-contract.md"
   ],
-  "notes": "User authorized implementation per finalized design. User chose locally verifiable delivery first; native cross-platform acceptance retained. Windows11 source/distribution/installed tests pass. Task remains in_progress; see docs/acceptance.md.",
+  "notes": "Local-first delivery1.0.1 built and installed/upgraded on Windows11. Independent preference saves and preview lifecycle fixed;98 pure tests,10 Electron tests and native two-cycle/hidden-main check pass. Full native cross-platform/signing/long-run acceptance remains open in docs/acceptance.md. Task remains in_progress.",
   "meta": {
     "design_complete": true,
     "implementation_authorized": true,
     "stop_before_implementation": false,
     "local_delivery_verified": true,
-    "unit_integration_tests_passed": 87,
-    "real_electron_tests_passed": 8,
-    "release_acceptance_complete": false
+    "unit_integration_tests_passed": 98,
+    "real_electron_tests_passed": 10,
+    "release_acceptance_complete": false,
+    "local_delivery_version": "1.0.1",
+    "native_windows_two_cycle_check_passed": true
   }
 }

@@ -1,7 +1,7 @@
 {
   "name": "eyecare",
   "productName": "EyeCare",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "跨平台常驻护眼提醒工具",
   "main": ".vite/build/main.js",
   "author": "EyeCare contributors",
@@ -17,7 +17,8 @@
     "test:e2e": "playwright test",
     "test": "vitest run",
     "check": "npm run typecheck && npm run lint && npm run test",
-    "probe:platform": "node scripts/probe-platform.cjs"
+    "probe:platform": "node scripts/probe-platform.cjs",
+    "verify:windows-runtime": "node scripts/verify-windows-runtime.cjs"
   },
   "config": {
     "forge": "./forge.config.ts"
