@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-10-10T13:27:31.638Z",
+  "recordedAt": "2026-10-10T13:49:21.362Z",
   "platform": "win32",
   "arch": "x64",
   "durationSeconds": 6,
@@ -9,78 +9,78 @@
       {
         "type": "Browser",
         "cpuPercent": 0,
-        "workingSetKB": 128604,
-        "peakWorkingSetKB": 128604
+        "workingSetKB": 129480,
+        "peakWorkingSetKB": 129480
       },
       {
         "type": "GPU",
         "cpuPercent": 0,
-        "workingSetKB": 99256,
-        "peakWorkingSetKB": 99264
+        "workingSetKB": 98768,
+        "peakWorkingSetKB": 98768
       },
       {
         "type": "Utility",
         "cpuPercent": 0,
-        "workingSetKB": 49440,
-        "peakWorkingSetKB": 49440
+        "workingSetKB": 49228,
+        "peakWorkingSetKB": 49228
       },
       {
         "type": "Tab",
         "cpuPercent": 0,
-        "workingSetKB": 91488,
-        "peakWorkingSetKB": 91748
+        "workingSetKB": 91972,
+        "peakWorkingSetKB": 92324
       }
     ],
     [
       {
         "type": "Browser",
-        "cpuPercent": 0.021153455628511477,
-        "workingSetKB": 128572,
-        "peakWorkingSetKB": 128876
+        "cpuPercent": 0.036996173848335305,
+        "workingSetKB": 128204,
+        "peakWorkingSetKB": 130064
       },
       {
         "type": "GPU",
-        "cpuPercent": 0.02016229715965868,
-        "workingSetKB": 98036,
-        "peakWorkingSetKB": 99264
+        "cpuPercent": 0.09664590664428298,
+        "workingSetKB": 103884,
+        "peakWorkingSetKB": 105672
       },
       {
         "type": "Utility",
-        "cpuPercent": 0,
-        "workingSetKB": 49440,
-        "peakWorkingSetKB": 49440
+        "cpuPercent": 0.01963755674037412,
+        "workingSetKB": 49472,
+        "peakWorkingSetKB": 50496
       },
       {
         "type": "Tab",
-        "cpuPercent": 0.01715112902958207,
-        "workingSetKB": 91036,
-        "peakWorkingSetKB": 91748
+        "cpuPercent": 0.03925020928479713,
+        "workingSetKB": 92848,
+        "peakWorkingSetKB": 93284
       }
     ],
     [
       {
         "type": "Browser",
-        "cpuPercent": 0.02531426951504566,
-        "workingSetKB": 128704,
-        "peakWorkingSetKB": 128876
+        "cpuPercent": 0.027941368963253582,
+        "workingSetKB": 128304,
+        "peakWorkingSetKB": 130064
       },
       {
         "type": "GPU",
-        "cpuPercent": 0.005903248326557431,
-        "workingSetKB": 98068,
-        "peakWorkingSetKB": 99264
+        "cpuPercent": 0.04019141622222366,
+        "workingSetKB": 104240,
+        "peakWorkingSetKB": 105672
       },
       {
         "type": "Utility",
-        "cpuPercent": 0.00017386958688089384,
-        "workingSetKB": 49440,
-        "peakWorkingSetKB": 49440
+        "cpuPercent": 0.00021512742990569144,
+        "workingSetKB": 49472,
+        "peakWorkingSetKB": 50496
       },
       {
         "type": "Tab",
-        "cpuPercent": 0.011347088604492734,
-        "workingSetKB": 91108,
-        "peakWorkingSetKB": 91748
+        "cpuPercent": 0.024979542259610174,
+        "workingSetKB": 93052,
+        "peakWorkingSetKB": 93284
       }
     ]
   ]

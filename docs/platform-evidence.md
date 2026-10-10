@@ -11,13 +11,15 @@ Recorded 2026-10-10. Interface availability and automated assertions are separat
 | Mouse source | Raw Input message-only native window, movement/button/wheel events; no payload read | Minimum CoreGraphics mouse/drag/button/scroll event ages | Disabled with a precise XInput2 verification reason | Disabled |
 | Startup lock | Current process WTS session flags **and** input desktop; failure is unknown | Explicit current-session lock boolean, on-console session check, optional explicit IOKit console lock boolean; missing flags remain unknown | Current process logind session Active/LockedHint **and** GNOME/freedesktop ScreenSaver GetActive; disagreement is unknown | Same desktop lock checks; input and overlays still limited |
 | Suspend/resume | Electron immediate events; fresh native query on resume | Same | Same; invalidate cached D-Bus results on resume | Same |
-| Login startup | Electron login item API with read-back | Same | XDG autostart desktop entry | Same |
+| Login startup | Persistent Squirrel stub / portable executable, Electron API with read-back; legacy migration preserves system approval | Electron API with read-back, platform-specific options | XDG desktop entry; AppImage uses original `APPIMAGE` file | Same |
 
 Linux D-Bus reads use fixed executable arguments, no shell, per-process timeouts, output bounds, bounded cache age and a generation fence against stale pre-resume results. Linux input and clock loading failures cannot become zero idle or unlocked. macOS dictionary/registry keys are OS-version-dependent; an absent key is never treated as false. A real macOS unlock event can supplement the native query until the next resume/session-inactive event.
 
 Windows mouse registration is released on disposal and initialization failure. First startup mouse age is unknown until a genuine mouse event arrives; keyboard-only activity cannot initialize the mouse counter. The callback reads only the message category and stores a timestamp, never coordinates, button content or keystrokes. The native bridge window is message-only and never visible or focused.
 
 Wayland limitations are explicit: ordinary Electron windows do not prove desktop-wide positioning/coverage or whole-session input. No Xwayland flag is used as a substitute. Linux tray support remains unknown because successfully allocating a tray object does not prove a desktop tray is present; the main window must remain a recovery entry.
+
+Windows1.0.2 installed-app tests verified startup registration against the persistent stub, then restarted with legacy entries pointing to an absent old version folder. Both OS-enabled and OS-disabled entries migrated with their original approval state. Only the exact owned current-user Run value is read, with bounded hidden PowerShell execution and UTF-8 JSON; unrelated/missing/stable entries are not changed. Original disabled preference and owned OS entry were restored. Reboot/logon remains unverified. Linux AppImage path selection and desktop entry escaping were tested through real filesystem writes with an injected file-existence result; native Linux execution remains unverified.
 
 ## Actual Windows observation
 
@@ -57,5 +59,7 @@ The separate Electron 44.7.0 probe (`scripts/probe-platform-electron.cjs`) exite
 - [Apple fast user switching](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPMultipleUsers/Concepts/FastUserSwitching.html): on-console/current-session properties. Lock-key reliability is an implementation hypothesis requiring native verification, not an Apple API guarantee.
 - [systemd login1 source documentation](https://raw.githubusercontent.com/systemd/systemd/main/man/org.freedesktop.login1.xml): current session lookup and LockedHint semantics.
 - [Koffi callback lifetime](https://koffi.dev/callbacks): registered callback ownership and unregister requirement.
+- [Electron login item settings](https://www.electronjs.org/docs/latest/api/app#appsetloginitemsettingssettings-macos-windows): Squirrel persistent stub and identical query options.
+- [AppImage environment variables](https://docs.appimage.org/packaging-guide/environment-variables.html): `APPIMAGE` identifies the original file; `APPDIR` identifies the mount point.
 
 No platform is labeled release-verified by this file.

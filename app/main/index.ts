@@ -5,7 +5,7 @@ import type { EngineUpdate, PreviewResult, ReminderEvent, Result, RuntimeSnapsho
 import { TimerEngine } from './engine/timer-engine';
 import { SettingsStore } from './settings/settings-store';
 import { validateSettings } from './settings/validation';
-import { PlatformAdapter, setLaunchAtLogin } from './platform';
+import { PlatformAdapter, setLaunchAtLogin, migrateWindowsLaunchAtLogin } from './platform';
 import { ReminderCoordinator } from './reminders/coordinator';
 import { TrayPresenter } from './tray/presenter';
 import { isTrustedSurface, loadSurface, windowOptions } from './windows';
@@ -181,6 +181,10 @@ else {
     Menu.setApplicationMenu(null);
     store = new SettingsStore(app.getPath('userData'));
     const loaded = await store.load(); startupWarnings = loaded.warnings;
+    if (loaded.settings.general.launchAtLogin) {
+      try { await migrateWindowsLaunchAtLogin(); }
+      catch (error) { startupWarnings.push(error instanceof Error ? error.message : '登录启动项升级失败，请重新切换登录启动'); }
+    }
     engine = new TimerEngine(loaded.settings, loaded.revision);
     adapter = new PlatformAdapter();
     coordinator = new ReminderCoordinator(presentedSnapshot, event => {

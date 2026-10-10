@@ -1,10 +1,9 @@
-import { app, nativeTheme, Notification, powerMonitor, screen, systemPreferences } from 'electron';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { dirname, isAbsolute, join } from 'node:path';
-import { homedir } from 'node:os';
+import { nativeTheme, Notification, powerMonitor, screen, systemPreferences } from 'electron';
 import type { Capabilities, Capability, PlatformSample } from '../../shared/contracts';
 import { createLinuxProvider, createMacProvider, createWindowsProvider, type LockState, type NativeProvider } from './native';
 import { LinuxLockReader } from './linux-lock';
+
+export { setLaunchAtLogin, migrateWindowsLaunchAtLogin } from './autostart';
 
 const status = (state: Capability['state'], reason: string): Capability => ({ state, reason });
 export class PlatformAdapter {
@@ -94,23 +93,4 @@ export class PlatformAdapter {
   }
   subscribe(listener: () => void): () => void { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
   dispose(): void { this.stopped = true; this.cleanups.forEach(cleanup => cleanup()); this.cleanups = []; this.listeners.clear(); this.linuxLock?.dispose(); this.native?.dispose(); this.native = null; }
-}
-
-export async function setLaunchAtLogin(enabled: boolean): Promise<void> {
-  if (process.platform !== 'linux') {
-    app.setLoginItemSettings({ openAtLogin: enabled, path: process.execPath });
-    if (app.getLoginItemSettings({ path: process.execPath }).openAtLogin !== enabled) throw new Error('系统未保存登录启动设置');
-    return;
-  }
-  const configRoot = process.env.XDG_CONFIG_HOME;
-  const folder = join(configRoot && isAbsolute(configRoot) ? configRoot : join(homedir(), '.config'), 'autostart');
-  const file = join(folder, 'eyecare.desktop');
-  if (!enabled) { await rm(file, { force: true }); return; }
-  await mkdir(dirname(file), { recursive: true });
-  const executable = process.execPath;
-  if (/[\n\r]/.test(executable)) throw new Error('自动启动路径无效');
-  // Desktop entries first unescape the value and then parse Exec quoting.
-  // Escaping both layers prevents special filename characters becoming fields.
-  const quoted = executable.replace(/\\/g, '\\\\\\\\').replace(/["`$]/g, character => `\\\\${character}`).replace(/%/g, '%%');
-  await writeFile(file, `[Desktop Entry]\nType=Application\nVersion=1.0\nName=EyeCare\nComment=Eye care reminders\nExec="${quoted}"\nTerminal=false\nX-GNOME-Autostart-enabled=true\n`, { encoding: 'utf8', mode: 0o600 });
 }
