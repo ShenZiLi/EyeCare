@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/runtime-contract.md", "reason": "Planned timer, platform, persistence and IPC contracts"}
+{"file": ".trellis/spec/frontend/ui-contract.md", "reason": "Planned desktop interactions, theme and accessibility contracts"}
+{"file": "design-system/eyecare/MASTER.md", "reason": "Liquid Glass light and dark visual system"}
+{"file": ".trellis/tasks/10-10-eyecare-product-design/research/platform-capabilities.md", "reason": "Official capability evidence and native verification limits"}
