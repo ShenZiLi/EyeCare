@@ -1,0 +1,55 @@
+{
+  "name": "eyecare",
+  "productName": "EyeCare",
+  "version": "1.0.0",
+  "description": "跨平台常驻护眼提醒工具",
+  "main": ".vite/build/main.js",
+  "author": "EyeCare contributors",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint app tests scripts *.ts",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:e2e": "playwright test",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "probe:platform": "node scripts/probe-platform.cjs"
+  },
+  "config": {
+    "forge": "./forge.config.ts"
+  },
+  "dependencies": {
+    "electron-squirrel-startup": "1.0.1",
+    "koffi": "3.3.3",
+    "lucide-react": "0.468.0",
+    "react": "19.1.1",
+    "react-dom": "19.1.1"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "7.11.1",
+    "@electron-forge/maker-base": "7.11.1",
+    "@electron-forge/maker-deb": "7.11.1",
+    "@electron-forge/maker-rpm": "7.11.1",
+    "@electron-forge/maker-squirrel": "7.11.1",
+    "@electron-forge/maker-zip": "7.11.1",
+    "@electron-forge/plugin-auto-unpack-natives": "7.11.1",
+    "@electron-forge/plugin-vite": "7.11.1",
+    "@electron-forge/shared-types": "7.11.1",
+    "@playwright/test": "1.56.1",
+    "@types/electron-squirrel-startup": "1.0.2",
+    "@types/node": "24.7.2",
+    "@types/react": "19.1.16",
+    "@types/react-dom": "19.1.9",
+    "@vitejs/plugin-react": "4.7.0",
+    "electron": "44.7.0",
+    "eslint": "9.37.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.46.1",
+    "vite": "6.3.5",
+    "vitest": "3.2.4"
+  }
+}

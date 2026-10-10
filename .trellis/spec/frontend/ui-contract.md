@@ -1,6 +1,6 @@
-# Planned EyeCare UI Contract
+# EyeCare UI Contract
 
-Status: design only. Use `design-system/eyecare/MASTER.md` and the task PRD as sources of truth; no UI has been implemented or visually verified yet.
+Status: implemented in `app/renderer`; real Windows Electron e2e evidence and screenshots are recorded in `docs/acceptance.md`. Use `design-system/eyecare/MASTER.md` and the task PRD as sources of truth. Full native composite contrast, scaling and target-host acceptance remain pending.
 
 ## 1. Scope / Trigger
 
@@ -71,3 +71,11 @@ Wrong: applying one translucent card and text color to both themes. Correct: dis
 Wrong: the countdown toggle disables reminders. Correct: it only changes the tray presentation.
 
 Wrong: a close button and “知道了” have identical rest semantics. Correct: skipping and confirming are different event actions.
+
+## Implemented conventions
+
+- `App` owns the form `draft`, effective `base` and expected `revision`; snapshots never overwrite dirty input. Invalid saves and version conflicts retain it; reapply explicitly uses latest effective revision. Immediate appearance commits merge only theme/countdown into existing drafts.
+- `Overlay` mounts an event keyed by ID/generation. Creation-time parameters start once after `overlayReady`; appearance messages update tokens without restarting audio or flash. Audio `play()` resolution sends `overlaySoundStarted`; end/error sends one channel result. Window destruction cancels animation, timers and audio.
+- `Field` and `Toggle` use visible wrapping labels; numeric controls keep units and preserve invalid/empty input. Sidebar icon-only mode keeps explicit accessible names.
+- `Modal` and masks trap Tab/Shift+Tab, offer button exits, support Escape and restore local focus. Saved scroll padding and control scroll margins reserve 132px against the sticky save bar so focus is not obscured.
+- Static production CSP permits only local scripts/media. Development uses a local Vite nonce for React refresh; no production remote page or renderer Node access is enabled.

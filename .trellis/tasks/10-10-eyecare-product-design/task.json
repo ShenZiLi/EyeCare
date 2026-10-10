@@ -3,7 +3,7 @@
   "name": "eyecare-product-design",
   "title": "护眼软件产品设计",
   "description": "完善跨 macOS、Windows、Linux 的护眼提醒产品设计，明确触发条件、提醒方式及边界行为",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -12,7 +12,7 @@
   "assignee": "shen",
   "createdAt": "2026-10-10",
   "completedAt": null,
-  "branch": null,
+  "branch": "dev",
   "base_branch": "main",
   "worktree_path": null,
   "commit": null,
@@ -29,10 +29,14 @@
     ".trellis/spec/backend/runtime-contract.md",
     ".trellis/spec/frontend/ui-contract.md"
   ],
-  "notes": "Design finalized per user recommendation authorization. Explicit stop before implementation; keep planning. Review prd.md, design.md and implement.md before any future implementation authorization.",
+  "notes": "User authorized implementation per finalized design. User chose locally verifiable delivery first; native cross-platform acceptance retained. Windows11 source/distribution/installed tests pass. Task remains in_progress; see docs/acceptance.md.",
   "meta": {
     "design_complete": true,
-    "implementation_authorized": false,
-    "stop_before_implementation": true
+    "implementation_authorized": true,
+    "stop_before_implementation": false,
+    "local_delivery_verified": true,
+    "unit_integration_tests_passed": 87,
+    "real_electron_tests_passed": 8,
+    "release_acceptance_complete": false
   }
 }

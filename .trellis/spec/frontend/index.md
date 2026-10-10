@@ -14,7 +14,7 @@ This directory contains guidelines for frontend development. Fill in each file w
 
 | Guide | Description | Status |
 |-------|-------------|--------|
-| [UI Contract](./ui-contract.md) | Planned desktop surfaces, theme and reminder interactions | Design ready; not implemented |
+| [UI Contract](./ui-contract.md) | Desktop surfaces, theme and reminder interactions | Implemented; native acceptance pending |
 | [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
 | [Component Guidelines](./component-guidelines.md) | Component patterns, props, composition | To fill |
 | [Hook Guidelines](./hook-guidelines.md) | Custom hooks, data fetching patterns | To fill |
@@ -38,3 +38,7 @@ The goal is to help AI assistants and new team members understand how YOUR proje
 ---
 
 **Language**: All documentation should be written in **English**.
+
+## Pre-Development Checklist and Quality Check
+
+Read [Implementation Guidelines](./implementation-guidelines.md) and the contract above before coding. Their quality checks define the required validation commands and evidence boundaries.

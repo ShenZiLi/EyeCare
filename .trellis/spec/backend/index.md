@@ -14,7 +14,7 @@ This directory contains guidelines for backend development. Fill in each file wi
 
 | Guide | Description | Status |
 |-------|-------------|--------|
-| [Runtime Contract](./runtime-contract.md) | Planned timer, platform, settings and IPC contracts | Design ready; not implemented |
+| [Runtime Contract](./runtime-contract.md) | Planned timer, platform, settings and IPC contracts | Implemented; native acceptance pending |
 | [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
 | [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
 | [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
@@ -37,3 +37,7 @@ The goal is to help AI assistants and new team members understand how YOUR proje
 ---
 
 **Language**: All documentation should be written in **English**.
+
+## Pre-Development Checklist and Quality Check
+
+Read [Implementation Guidelines](./implementation-guidelines.md) and the contract above before coding. Their quality checks define the required validation commands and evidence boundaries.

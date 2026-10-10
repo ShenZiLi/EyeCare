@@ -1,0 +1,39 @@
+name: Verify and build desktop packages
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev, main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-15, macos-15-intel, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: Linux packaging dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm fakeroot libfuse2t64 libxss1 libgtk-3-0 libnss3 libasound2t64
+          curl --fail --location https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage --output appimagetool
+          chmod +x appimagetool
+          sudo mv appimagetool /usr/local/bin/appimagetool
+      - run: npm ci
+      - run: npm run check
+      - run: npm run make
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EyeCare-${{ runner.os }}-${{ runner.arch }}
+          path: out/make/**
+          if-no-files-found: error
+# Build artifacts from this workflow are unsigned unless signing is configured.
+# Hosted runners do not replace native GNOME/KDE/macOS/Windows full acceptance.

@@ -1,6 +1,6 @@
-# Planned EyeCare Runtime Contract
+# EyeCare Runtime Contract
 
-Status: design only, not an implemented API. Source of product behavior: `.trellis/tasks/10-10-eyecare-product-design/prd.md`; architecture: `.trellis/tasks/10-10-eyecare-product-design/design.md`. Implementation is explicitly unauthorized in the current session.
+Status: implemented locally under `app/main` and `app/shared/contracts.ts` after user authorization on 2026-10-10. Source of product behavior: `.trellis/tasks/10-10-eyecare-product-design/prd.md`; architecture: `.trellis/tasks/10-10-eyecare-product-design/design.md`. Native release acceptance remains tracked in `docs/acceptance.md`; interface availability is not proof of platform support.
 
 ## 1. Scope / Trigger
 
@@ -8,11 +8,11 @@ This contract governs the future main-process timer, platform observations, sett
 
 ## 2. Signatures
 
-These are design signatures, not code to execute.
+The public signatures are defined in `app/shared/contracts.ts`. Engine commands return `EngineUpdate` (snapshot + effects); IPC wraps mutations in `Result<T>`.
 
 | Operation | Input | Output |
 |---|---|---|
-| PlatformAdapter.sample | none | PlatformSample |
+| PlatformAdapter.sample | activitySource (combined or mouse) | PlatformSample |
 | PlatformAdapter.subscribe | event listener | unsubscribe handle |
 | TimerEngine.acceptSample | PlatformSample | RuntimeSnapshot + effects |
 | SettingsStore.save | expectedRevision, SettingsV1 | updated settings or typed error |
@@ -60,6 +60,8 @@ Pause duration choices are 15/30/60 minutes or until-resumed. Reminder actions a
 There is no preserve-after-long-idle setting. `visual=none` requires soundEnabled and volumePercent > 0. Unsupported mouse-only capability rejects that selection. Unknown fields are rejected at the IPC boundary; schema migrations are explicit.
 
 PlatformSample: increasing sequence, trustworthy timestamp, combinedIdleMs, selectedSourceIdleMs, lockState (locked/unlocked/unknown), sleeping, displays, and capability statuses. Failed or unavailable measurements are nullable, never coerced to zero. Input content and pointer trajectories are never present.
+
+The implemented sample has required `clockTrusted: boolean`. A native continuous-clock fault sets false; fallback timestamps may order diagnostics but never prove absence duration. The engine conservatively clears progress and suppresses effects when clock trust is false.
 
 Capability status: available / unsupported / permission_required / error / unknown, plus non-sensitive reason. Required lock capability must be healthy before dispatch. Linux adapters verify the current session and desktop; logind hints alone are not proof of observed lock state.
 
@@ -124,3 +126,14 @@ Wrong: UI timer and tray timer each decrement their own counter. Correct: one en
 Wrong: a notification was submitted, therefore the user rested. Correct: only the user's real mask acknowledge has that product meaning.
 
 Wrong: no lock measurement means unlocked. Correct: unknown lock state blocks new reminders and surfaces a reason.
+
+## Implementation and review notes
+
+- `new TimerEngine(settings, revision, nowMs?)` is pure; `acceptSample` and commands return `EngineUpdate`. `getSnapshot` clones effective state. Fresh sampling precedes renderer commands.
+- `new SettingsStore(userDataDirectory)`, `load(): Promise<LoadedSettings>` and `save(expectedRevision, unknownPayload, capabilities?, displays?)` own the disk envelope `{settings, revision}`. Temp files use exclusive create, sync and rename; backups hold the previous valid envelope. Saves serialize and validate before writing.
+- Overlay IPC has fixed readiness, playback-start and per-channel completion commands. `overlaySoundStarted(id, generation)` signals successful `audio.play()` before submitting a combined silent notification. Main validates sender/frame, exact registered surface URL, payload, immutable identity, ready state and sound ownership. Renderer-origin reports cannot resolve another screen's channels.
+- Vite main/preload entry filenames are explicitly `main.js` / `preload.js`; both source entries are named `index.ts` and would otherwise collide. Packager keeps `.vite`, production native dependencies and resources. Koffi stays external and Forge unpacks native modules.
+- Never infer Linux tray support from constructing an Electron Tray. Unknown capability keeps an accessible main window. Windows/macOS template or theme-specific icons follow system tray appearance; disabling numbers restores the eye icon without changing the engine.
+- Capture WebContents IDs while windows are alive. Electron `closed` callbacks cannot read `window.webContents` after destruction; doing so throws and can block normal exit. The reminder test double intentionally rejects destroyed access, and real Electron e2e must prove shutdown.
+- `subscribeOpenSettings` listens to trusted main navigation and consumes pending requests on registration, so a newly created renderer cannot miss a tray settings request. Dirty drafts still offer keep/discard.
+- Test-only `EYECARE_TEST_USER_DATA` is respected only when `app.isPackaged` is false. Runtime needs no environment variables. Signing env keys belong to README/build config and are never persisted.

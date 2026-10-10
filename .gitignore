@@ -3,3 +3,10 @@
 
 # macOS
 .DS_Store
+
+node_modules/
+.vite/
+out/
+test-results/
+playwright-report/
+*.log
