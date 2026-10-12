@@ -110,62 +110,100 @@ export function createWindowsProvider(): NativeProvider {
   };
 }
 
-export function createMacProvider(): NativeProvider {
-  const cg = koffi.load('/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics');
+function createMacLockReader(cg: ReturnType<typeof koffi.load>): Pick<NativeProvider, 'lockState' | 'dispose'> {
   const cf = koffi.load('/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation');
-  const system = koffi.load('/usr/lib/libSystem.B.dylib');
-  const timebase = koffi.struct({ numer: 'uint32_t', denom: 'uint32_t' });
-  const base = { numer: 0, denom: 0 };
-  if (system.func('mach_timebase_info', 'int', [koffi.out(koffi.pointer(timebase))])(base) !== 0 || !base.denom) throw new Error('连续时钟不可用');
-  const continuous = system.func('uint64_t mach_continuous_time()');
-  const since = cg.func('double CGEventSourceSecondsSinceLastEventType(int, uint32_t)');
   const session = cg.func('void * CGSessionCopyCurrentDictionary()');
   const createKey = cf.func('void * CFStringCreateWithCString(void *, str, uint32_t)');
   const get = cf.func('void * CFDictionaryGetValue(void *, void *)');
   const type = cf.func('uintptr_t CFGetTypeID(void *)');
   const booleanType = cf.func('uintptr_t CFBooleanGetTypeID()');
   const boolean = cf.func('bool CFBooleanGetValue(void *)');
+  const dictionaryType = cf.func('uintptr_t CFDictionaryGetTypeID()');
+  const numberType = cf.func('uintptr_t CFNumberGetTypeID()');
+  const number = cf.func('bool CFNumberGetValue(void *, int, _Out_ int64_t *)');
   const release = cf.func('void CFRelease(void *)');
-  const lockKey = createKey(null, 'CGSSessionScreenIsLocked', 0x08000100);
-  const consoleKey = koffi.decode(cg.symbol('kCGSessionOnConsoleKey'), 'void *');
-  const registryKey = createKey(null, 'IOConsoleLocked', 0x08000100);
-  let registryLock = (): LockState => 'unknown';
+  const ownedKeys: unknown[] = [];
+  const key = (name: string) => {
+    const value = createKey(null, name, 0x08000100);
+    if (!value) throw new Error('创建会话状态键失败');
+    ownedKeys.push(value);
+    return value;
+  };
+  let disposed = false;
+  const dispose = () => { if (!disposed) { disposed = true; ownedKeys.forEach(value => release(value)); } };
   try {
-    const io = koffi.load('/System/Library/Frameworks/IOKit.framework/IOKit');
-    const root = io.func('uint32_t IORegistryGetRootEntry(uint32_t)');
-    const property = io.func('void * IORegistryEntryCreateCFProperty(uint32_t, void *, void *, uint32_t)');
-    const releaseEntry = io.func('int IOObjectRelease(uint32_t)');
-    registryLock = () => {
-      const entry = root(0);
-      if (!entry) return 'unknown';
-      try {
-        const value = property(entry, registryKey, null, 0);
-        if (!value) return 'unknown';
-        try { return type(value) === booleanType() ? (boolean(value) ? 'locked' : 'unlocked') : 'unknown'; }
-        finally { release(value); }
-      } finally { releaseEntry(entry); }
+    const lockKey = key('CGSSessionScreenIsLocked');
+    // The SDK name is a CFSTR macro, not an exported dylib symbol. The actual
+    // dictionary key includes the extra S in kCGSSessionOnConsoleKey.
+    const consoleKey = key('kCGSSessionOnConsoleKey');
+    const userKey = key('kCGSSessionUserIDKey');
+    const registryKey = key('IOConsoleLocked');
+    let registryLock = (): LockState => 'unknown';
+    try {
+      const io = koffi.load('/System/Library/Frameworks/IOKit.framework/IOKit');
+      const root = io.func('uint32_t IORegistryGetRootEntry(uint32_t)');
+      const property = io.func('void * IORegistryEntryCreateCFProperty(uint32_t, void *, void *, uint32_t)');
+      const releaseEntry = io.func('int IOObjectRelease(uint32_t)');
+      registryLock = () => {
+        const entry = root(0);
+        if (!entry) return 'unknown';
+        try {
+          const value = property(entry, registryKey, null, 0);
+          if (!value) return 'unknown';
+          try { return type(value) === booleanType() ? (boolean(value) ? 'locked' : 'unlocked') : 'unknown'; }
+          finally { release(value); }
+        } finally { releaseEntry(entry); }
+      };
+    } catch { /* OS versions without an explicit registry flag remain unknown. */ }
+    return {
+      lockState: () => {
+        if (disposed) return 'unknown';
+        const dict = session();
+        if (!dict) return 'unknown';
+        try {
+          if (type(dict) !== dictionaryType()) return 'unknown';
+          const user = get(dict, userKey);
+          const uid = [0];
+          if (!user || type(user) !== numberType() || !number(user, 4, uid) || Number(uid[0]) !== process.getuid?.()) return 'unknown';
+          const onConsole = get(dict, consoleKey);
+          if (!onConsole || type(onConsole) !== booleanType()) return 'unknown';
+          if (!boolean(onConsole)) return 'locked';
+          const value = get(dict, lockKey);
+          // Modern macOS omits the session lock key when unlocked. Require the
+          // explicit root IOConsoleLocked flag instead; absence is never false.
+          if (!value) return registryLock();
+          if (type(value) !== booleanType()) return 'unknown';
+          if (boolean(value)) return 'locked';
+          // During transitions a session unlock must not override an explicit
+          // locked console. A missing root flag is not treated as false; in that
+          // case only this typed, current-session false proves unlocked.
+          return registryLock() === 'locked' ? 'locked' : 'unlocked';
+        } finally { release(dict); }
+      },
+      dispose,
     };
-  } catch { /* OS versions without an explicit registry flag remain unknown. */ }
+  } catch (error) { dispose(); throw error; }
+}
+
+export function createMacProvider(): NativeProvider {
+  const cg = koffi.load('/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics');
+  const system = koffi.load('/usr/lib/libSystem.B.dylib');
+  const timebase = koffi.struct({ numer: 'uint32_t', denom: 'uint32_t' });
+  const base = { numer: 0, denom: 0 };
+  if (system.func('mach_timebase_info', 'int', [koffi.out(koffi.pointer(timebase))])(base) !== 0 || !base.numer || !base.denom) throw new Error('连续时钟不可用');
+  const continuous = system.func('uint64_t mach_continuous_time()');
+  const since = cg.func('double CGEventSourceSecondsSinceLastEventType(int, uint32_t)');
+  let lock: Pick<NativeProvider, 'lockState' | 'dispose'> = { lockState: () => 'unknown', dispose: () => {} };
+  // A missing optional lock API must suppress reminders through unknown lock
+  // state, while keeping the independently working clock and input observable.
+  try { lock = createMacLockReader(cg); } catch { /* The adapter reports unknown lock state. */ }
   return {
     nowMs: () => Number(continuous()) * base.numer / base.denom / 1e6,
     combinedIdleMs: () => finiteIdle(since(0, 0xffffffff) * 1000),
-    mouseIdleMs: () => finiteIdle(Math.min(...[1, 2, 3, 4, 5, 6, 7, 22, 25, 26, 27].map(event => since(0, event))) * 1000),
-    mouseReason: 'CoreGraphics 合并会话事件时间：移动、按键、拖动和滚轮；需原生设备验收',
-    lockState: () => {
-      const dict = session();
-      if (!dict) return 'unknown';
-      try {
-        const onConsole = get(dict, consoleKey);
-        if (!onConsole || type(onConsole) !== booleanType()) return 'unknown';
-        if (!boolean(onConsole)) return 'locked';
-        const value = get(dict, lockKey);
-        // The lock dictionary key is not guaranteed on every OS version. Absence
-        // is unknown, never an implicit false. Electron unlock events supplement it.
-        if (!value || type(value) !== booleanType()) return registryLock();
-        return boolean(value) ? 'locked' : 'unlocked';
-      } finally { release(dict); }
-    },
-    dispose: () => { release(lockKey); release(registryKey); },
+    mouseIdleMs: () => finiteIdle(Math.min(...[1, 2, 3, 4, 5, 6, 7, 22, 25, 26, 27].map(event => finiteIdle(since(0, event)))) * 1000),
+    mouseReason: 'CoreGraphics 合并会话事件时间：鼠标移动、鼠标按键、拖动和滚轮；不读取输入内容，需原生设备验收',
+    lockState: lock.lockState,
+    dispose: lock.dispose,
   };
 }
 

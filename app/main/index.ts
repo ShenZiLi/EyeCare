@@ -170,13 +170,15 @@ function registerIPC() {
   handle('quit', ['main', 'tray'], () => { setImmediate(quit); return { ok: true, value: null }; });
 }
 
+// Electron scopes its single-instance lock to userData. Isolated development
+// verification must set this path before taking the lock, not after ready.
+if (!app.isPackaged && process.env.EYECARE_TEST_USER_DATA) app.setPath('userData', process.env.EYECARE_TEST_USER_DATA);
 if (squirrelStartup || !app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', () => { void showMain(); });
   app.on('window-all-closed', () => { if (!hasConfirmedTray()) quit(); });
   app.on('before-quit', () => { quitting = true; coordinator?.cancel(); if (interval) clearInterval(interval); adapter?.dispose(); tray?.dispose(); });
   app.whenReady().then(async () => {
-    if (!app.isPackaged && process.env.EYECARE_TEST_USER_DATA) app.setPath('userData', process.env.EYECARE_TEST_USER_DATA);
     app.setAppUserModelId('org.eyecare.desktop');
     Menu.setApplicationMenu(null);
     store = new SettingsStore(app.getPath('userData'));

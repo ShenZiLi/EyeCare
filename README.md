@@ -25,11 +25,16 @@ npm run package
 npm run test:e2e
 npm run make
 npm run verify:windows-runtime
+npm run verify:macos-runtime
 ```
 
 界面测试直接启动真实 Electron 应用，使用临时配置目录；测试前需要 `npm run package` 构建最新主进程及页面。`npm run probe:platform` 运行只读当前会话探针。`node_modules/electron/dist/electron.exe scripts/probe-platform-electron.cjs` 在 Windows 验证实际 Electron 状态；环境变量 `ELECTRON_RUN_AS_NODE` 必须不存在。
 
 `npm run verify:windows-runtime` 在 Windows 使用临时配置运行约136秒，两次按真实系统时钟到期的默认闪屏，包含主窗口隐藏/显示和遮罩清理检查；结果写入 `docs/windows-runtime-evidence.json`。测试期间会短暂显示两次柔和闪屏，不更改已安装应用的偏好。它不代替物理锁屏、睡眠、多显示器或长时间稳定性验收。
+
+`npm run verify:macos-runtime` 在 Mac 使用临时配置，按真实 `mach_continuous_time` 时钟完成一次一分钟闪屏周期，检查隐藏主窗口、菜单栏倒计时开关和蒙版“知道了”的休息确认，结果写入 `docs/macos-runtime-evidence.json`。它会短暂显示闪屏和蒙版，使用实际系统输入与锁屏读数，不修改用户偏好、登录项或通知授权。macOS 26.4 ARM 本机记录见验收文档；Intel、物理锁屏/睡眠、多屏与签名通知仍需验收。
+
+构建时仅为 `@electron/packager` 固定替换 `extract-zip` 为 Electron 的原生解压器 `@electron-internal/extract-zip@1.0.5`。旧解压器在本机 Node 24 下曾提前退出且未生成应用；构建成功必须同时确认 `.app` 和 ZIP 实际存在。此依赖要求 Node >=22.12，符合上述 Node 24 构建环境。
 
 GitHub 网络不可达时，构建命令可临时设置 `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/` 与 `ELECTRON_CUSTOM_DIR={{ version }}`；下载仍由 Electron 内置 checksum 校验。镜像不是运行时依赖。
 

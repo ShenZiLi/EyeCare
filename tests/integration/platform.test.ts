@@ -81,12 +81,24 @@ describe('platform safety boundary', () => {
     runtime.powerMonitor.emit('unlock-screen');
     expect(value.sample().lockState).toBe('unlocked');
   });
-  it('a missing macOS lock key requires a real unlock event', () => {
+  it('a macOS unlock event cannot replace a missing native lock observation', () => {
     const { value } = adapter({ lockState: () => 'unknown' }, 'darwin');
     expect(value.sample().lockState).toBe('unknown');
     runtime.powerMonitor.emit('unlock-screen');
-    expect(value.sample().lockState).toBe('unlocked');
+    expect(value.sample().lockState).toBe('unknown');
     runtime.powerMonitor.emit('resume');
+    expect(value.sample().lockState).toBe('unknown');
+  });
+  it('does not retain a previous macOS unlock when current native evidence becomes unknown', () => {
+    let known = true;
+    const { value } = adapter({ lockState: () => known ? 'unlocked' : 'unknown' }, 'darwin');
+    runtime.powerMonitor.emit('unlock-screen');
+    expect(value.sample().lockState).toBe('unlocked');
+    known = false;
+    const current = value.sample();
+    expect(current.lockState).toBe('unknown');
+    expect(current.capabilities.lock.state).toBe('unknown');
+    runtime.powerMonitor.emit('unlock-screen');
     expect(value.sample().lockState).toBe('unknown');
   });
   it('reports the actual system accessibility preferences and display scale', () => {

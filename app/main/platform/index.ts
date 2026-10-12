@@ -75,10 +75,10 @@ export class PlatformAdapter {
         void this.linuxLock.refresh();
       } else {
         try { lockState = this.native.lockState(); } catch { lockState = 'unknown'; }
-        // A lock event immediately suppresses effects during transition. Only a
-        // real unlock event can supplement an unavailable macOS dictionary key.
+        // A lock event immediately suppresses effects during transition. Unlock
+        // events cannot replace a fresh unknown native observation: session
+        // identity, console state or native APIs may have changed since then.
         if (this.observedLock === 'locked') lockState = 'locked';
-        else if (this.host === 'darwin' && lockState === 'unknown' && this.observedLock === 'unlocked') lockState = 'unlocked';
       }
     } else {
       this.reports.input = status('unsupported', this.fault);

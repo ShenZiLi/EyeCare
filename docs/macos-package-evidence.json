@@ -1,0 +1,41 @@
+{
+  "recordedAt": "2026-10-12T08:37:19.136Z",
+  "packaged": true,
+  "version": "1.0.2",
+  "electron": "44.7.0",
+  "platform": "darwin",
+  "arch": "arm64",
+  "isolatedUserData": true,
+  "status": "counting",
+  "capabilities": {
+    "input": {
+      "state": "available",
+      "reason": "当前交互会话合并输入空闲时间"
+    },
+    "mouse": {
+      "state": "available",
+      "reason": "CoreGraphics 合并会话事件时间：鼠标移动、鼠标按键、拖动和滚轮；不读取输入内容，需原生设备验收"
+    },
+    "lock": {
+      "state": "available",
+      "reason": "原生当前会话锁屏状态"
+    },
+    "overlay": {
+      "state": "available",
+      "reason": "原生桌面窗口；多屏和虚拟桌面需实机验收"
+    },
+    "notification": {
+      "state": "available",
+      "reason": "系统通知接口可用；送达由权限和打包状态决定"
+    },
+    "tray": {
+      "state": "available",
+      "reason": "系统托盘接口可用"
+    },
+    "launchAtLogin": {
+      "state": "available",
+      "reason": "系统登录启动项"
+    }
+  },
+  "complete": true
+}

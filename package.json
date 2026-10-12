@@ -18,7 +18,8 @@
     "test": "vitest run",
     "check": "npm run typecheck && npm run lint && npm run test",
     "probe:platform": "node scripts/probe-platform.cjs",
-    "verify:windows-runtime": "node scripts/verify-windows-runtime.cjs"
+    "verify:windows-runtime": "node scripts/verify-windows-runtime.cjs",
+    "verify:macos-runtime": "node scripts/verify-macos-runtime.cjs"
   },
   "config": {
     "forge": "./forge.config.ts"
@@ -29,6 +30,11 @@
     "lucide-react": "0.468.0",
     "react": "19.1.1",
     "react-dom": "19.1.1"
+  },
+  "overrides": {
+    "@electron/packager": {
+      "extract-zip": "npm:@electron-internal/extract-zip@1.0.5"
+    }
   },
   "devDependencies": {
     "@electron-forge/cli": "7.11.1",

@@ -1,6 +1,6 @@
 # Platform evidence
 
-Recorded 2026-10-10. Interface availability and automated assertions are separate from native acceptance. No Linux or macOS machine was available during this implementation session.
+Windows evidence recorded 2026-10-10; macOS evidence added 2026-10-12. Interface availability and automated assertions are separate from native acceptance. Linux remains unavailable for native acceptance.
 
 ## Implemented adapters
 
@@ -13,7 +13,7 @@ Recorded 2026-10-10. Interface availability and automated assertions are separat
 | Suspend/resume | Electron immediate events; fresh native query on resume | Same | Same; invalidate cached D-Bus results on resume | Same |
 | Login startup | Persistent Squirrel stub / portable executable, Electron API with read-back; legacy migration preserves system approval | Electron API with read-back, platform-specific options | XDG desktop entry; AppImage uses original `APPIMAGE` file | Same |
 
-Linux D-Bus reads use fixed executable arguments, no shell, per-process timeouts, output bounds, bounded cache age and a generation fence against stale pre-resume results. Linux input and clock loading failures cannot become zero idle or unlocked. macOS dictionary/registry keys are OS-version-dependent; an absent key is never treated as false. A real macOS unlock event can supplement the native query until the next resume/session-inactive event.
+Linux D-Bus reads use fixed executable arguments, no shell, per-process timeouts, output bounds, bounded cache age and a generation fence against stale pre-resume results. Linux input and clock loading failures cannot become zero idle or unlocked. macOS dictionary/registry keys are OS-version-dependent; an absent key is never treated as false. Lock events immediately suppress reminders. Unlock events clear the event latch but cannot override a fresh unknown native lock reading.
 
 Windows mouse registration is released on disposal and initialization failure. First startup mouse age is unknown until a genuine mouse event arrives; keyboard-only activity cannot initialize the mouse counter. The callback reads only the message category and stores a timestamp, never coordinates, button content or keystrokes. The native bridge window is message-only and never visible or focused.
 
@@ -36,16 +36,28 @@ The raw mouse receiver observed a real incoming native event while pumping the h
 
 The separate Electron 44.7.0 probe (`scripts/probe-platform-electron.cjs`) exited successfully at `2026-10-10T12:49:55.417Z` (20:49 Shanghai) using Electron's actual message loop with no manual message pumping. The native continuous clock advanced 1610140 → 1613156 ms; combined idle advanced 105953 → 108969 ms and agreed with Electron's `idle` status. WTS/desktop lock stayed explicitly unlocked. Mouse age stayed unknown because no mouse event arrived during this run; callback delivery under Electron therefore still needs physical input verification. One display was detected (ID 60323411), scale 1.875, bounds 1835 × 769; dark theme and the actual reduced-motion preference were read successfully.
 
+## Actual macOS observation (2026-10-12)
+
+Host: macOS 26.4 / Darwin 25.4.0, ARM64, Electron 44.7.0, Node 24.16.0. One display: 1920 × 1080 logical bounds at scale 2. The initial startup failure was reproduced: `kCGSessionOnConsoleKey` is a `CFSTR` SDK macro, not an exported CoreGraphics symbol. Its actual string is `kCGSSessionOnConsoleKey`. The corrected provider validates the current UID and on-console boolean. On this host the Quartz dictionary omitted the lock key; the IOKit root exposed an explicit boolean `IOConsoleLocked=false`. Missing/invalid flags still suppress reminders, and locked evidence takes precedence.
+
+The actual native probe advanced `mach_continuous_time` from 1580213241.989 to 1580216274.477 ms over approximately 3.03 seconds. Combined input idle advanced 429627.368 → 432633.636 ms; mouse idle advanced 429627.446 → 432633.653 ms; lock was explicitly unlocked in both samples. CoreGraphics session source `0` is used for both combined idle and mouse-event ages; keyboard event types are excluded from the mouse list. These observations establish API loading and finite native measurements, not physical device separation or lock transitions.
+
+`npm run verify:macos-runtime` passed using actual native observations and isolated preferences. Exactly one configured one-minute flash occurred while the main window was hidden; its nonfocusable window closed automatically without confirming rest. Native Tray title getters showed an advancing `mm:ss` countdown; disabling it cleared the title without resetting progress and the icon remained a template image. A subsequent real mask “知道了” confirmed one rest, reset the cycle and left no overlay. OS login-item settings were read before/after and remained unchanged. Raw observations are in `macos-runtime-evidence.json`.
+
+`npm run make` produced `out/EyeCare-darwin-arm64/EyeCare.app` and `out/make/zip/darwin/arm64/EyeCare-darwin-arm64-1.0.2.zip`. ZIP SHA256: `1d28f882efb72d2bdcb28ccbe9c830de91f6b488d07734676b3a927c8630fc97`. The packager's old JavaScript ZIP extraction hung and exited without an artifact on this host; a scoped, pinned override to Electron's native `@electron-internal/extract-zip@1.0.5` resolved it. No Developer ID identity is installed; these artifacts do not establish distribution signing/notarization or signed notifications.
+
+Nine actual Electron GUI tests passed (eight shared GUI cases plus concurrent native instances with separate preference directories). The packaged ARM64 executable independently launched with isolated Chromium userData, loaded its production page and reported healthy native input/mouse/lock/overlay/tray capabilities with counting state. It exited cleanly; startup evidence is in `macos-package-evidence.json`. This packaged smoke test does not prove its physical transitions or signed notification delivery.
+
 ## Automated safety evidence
 
-`npx vitest run tests/integration/platform.test.ts`: 15 tests passed. Covered separate combined/mouse fields, increasing sample sequences, lock unknown, failed input never zero, continuous-clock failures/backward time, immediate suspend/resume, lock event precedence, missing macOS key, accessibility preferences, cleanup, Linux dual confirmation/disagreement/cache expiry/pre-resume stale-result rejection/unavailable services/inactive session suppression.
+`npx vitest run tests/unit/mac-native.test.ts tests/integration/platform.test.ts`: 41 tests passed on 2026-10-12 (25 macOS native-provider cases and 16 platform integration cases). Covered separate combined/mouse fields, clock and input validation, current-session UID/on-console gates, typed lock flags and locked precedence, failed/missing optional APIs, allocation cleanup, unknown after unlock, immediate suspend/resume, accessibility preferences, Linux dual confirmation/disagreement/cache expiry/pre-resume stale-result rejection/unavailable services/inactive session suppression.
 
 `npx tsc --noEmit` and focused ESLint checks passed after implementation. These tests use injected providers and mocked Electron surfaces; they prove safety logic, not native compatibility.
 
 ## Required native acceptance still outstanding
 
 - Windows installed application: lock/unlock (including launching already locked), sleep/resume, physical mouse/keyboard/wheel/drag separation, multiple displays and DPI, overlay focus/click-through, tray readability, notification/audio permissions, launch startup.
-- Native macOS: explicit startup lock flags on supported OS versions, login-session switching, sleep duration, mouse ages and permission behavior, overlay Spaces/fullscreen, menu bar countdown, packaged/signed notifications and login item behavior.
+- Native macOS: startup already locked and lock transitions on supported OS versions, login-session switching, sleep duration, physical mouse/keyboard/wheel/drag separation and permission behavior, multiple displays/Spaces/fullscreen, visual menu-bar readability, signed notification delivery and login startup execution. Current ARM host observations are recorded below; Intel remains unverified.
 - Ubuntu GNOME X11 and KDE X11: D-Bus lock transitions and startup detection, XScreenSaver idle, tray presence/recovery path, overlays/display positioning, packaged dependencies and autostart. Mouse-only stays disabled until an independently validated XInput2 bridge is delivered.
 - GNOME/KDE Wayland: desktop-specific input and overlay bridges and published supported-capability matrix; currently limited and explicitly disabled where reliability is unverified.
 
