@@ -2,7 +2,7 @@ import { BrowserWindow, Menu, Tray, nativeImage, nativeTheme, screen } from 'ele
 import path from 'node:path';
 import { formatTime, statusLabels, type RuntimeSnapshot } from '../../shared/contracts';
 import { loadSurface, windowOptions } from '../windows';
-import { numericTrayIcon, trayLabel } from './icon';
+import { blankTrayIcon, numericTrayIcon, trayLabel } from './icon';
 
 export class TrayPresenter {
   private tray: Tray | null = null;
@@ -40,7 +40,7 @@ export class TrayPresenter {
     // macOS 菜单栏只用标题显示倒计时，不显示图标；Windows/Linux 继续使用数字或占位图标。
     const key = darwin ? (showing ? 'text' : 'eye') : `${showing ? text : 'eye'}:${dark}`;
     if (key !== this.iconKey) {
-      const image = darwin ? (showing ? nativeImage.createEmpty() : this.standardIcon(dark)) : showing ? numericTrayIcon(text, dark) : this.standardIcon(dark);
+      const image = darwin ? (showing ? blankTrayIcon() : this.standardIcon(dark)) : showing ? numericTrayIcon(text, dark) : this.standardIcon(dark);
       this.tray.setImage(image);
       this.iconKey = key;
     }
