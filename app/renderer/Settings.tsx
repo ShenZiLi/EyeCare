@@ -1,5 +1,5 @@
-import { useId, useState, type Dispatch, type SetStateAction } from 'react';
-import { Bell, Moon, Sun, Laptop, Sparkles, Eye, Volume2, ShieldCheck, RotateCcw } from 'lucide-react';
+import type { Dispatch, SetStateAction } from 'react';
+import { Bell, Eye, Laptop, Moon, RotateCcw, ShieldCheck, Sparkles, Sun, Volume2 } from 'lucide-react';
 import type { Capabilities, RuntimeSnapshot, SettingsV2 } from '../shared/contracts';
 import { Field, Icon, Notice, Section, Toggle } from './components';
 
@@ -8,13 +8,6 @@ type Group = 'timer' | 'reminder' | 'appearance' | 'general';
 function updater(setDraft: Props['setDraft']) { return <G extends Group, K extends keyof SettingsV2[G]>(group: G, key: K, value: SettingsV2[G][K]) => setDraft(previous => previous ? { ...previous, [group]: { ...previous[group], [key]: value } } : previous); }
 function Numeric({ label, value, min, max, error, onChange }: { label: string; value: number; min: number; max: number; error?: string; onChange: (value: number) => void }) {
   return <Field label={label} hint={`${min}–${max} 分钟`} error={error}><span className="number-control"><input type="number" min={min} max={max} value={Number.isFinite(value) ? value : ''} aria-invalid={!!error} onChange={event => onChange(event.target.value === '' ? NaN : Number(event.target.value))}/><span>分钟</span></span></Field>;
-}
-export function ReminderInterval({ value, error, onChange, onBlur }: { value: number; error?: string; onChange: (value: number, immediate?: boolean) => void; onBlur: () => void }) {
-  const id = useId();
-  const presets = [20, 30, 40];
-  const [customSelected, setCustomSelected] = useState(!presets.includes(value));
-  const custom = customSelected || !presets.includes(value);
-  return <div className="interval-setting" onBlur={onBlur}><div className="interval-controls"><label className="interval-label" htmlFor={id}>提醒间隔<select id={id} value={custom ? 'custom' : String(value)} onChange={event => { const isCustom = event.target.value === 'custom'; setCustomSelected(isCustom); if (!isCustom) onChange(Number(event.target.value), true); }}><option value="20">20 分钟</option><option value="30">30 分钟</option><option value="40">40 分钟</option><option value="custom">自定义分钟</option></select></label>{custom && <label className="interval-label custom-interval" htmlFor={id + '-custom'}>自定义分钟<span className="number-control"><input id={id + '-custom'} type="number" min={1} max={240} step={1} value={Number.isFinite(value) ? value : ''} aria-label="自定义提醒间隔" aria-invalid={!!error} aria-describedby={error ? id + '-error' : undefined} onChange={event => onChange(event.target.value === '' ? NaN : Number(event.target.value))}/><span>分钟</span></span></label>}</div>{error && <p id={id + '-error'} className="field-error" role="alert">{error}</p>}</div>;
 }
 export function TriggerSettings({ draft, setDraft, snapshot, errors }: Props) {
   const update = updater(setDraft);

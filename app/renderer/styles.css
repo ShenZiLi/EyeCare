@@ -80,22 +80,13 @@ svg { flex: 0 0 auto; }
 .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
 .status-pill { display: flex; align-items: center; gap: 8px; border: 1px solid var(--soft-line); border-radius: 24px; background: var(--glass-tint); padding: 6px 12px; font-size: 12px; white-space: nowrap; color: var(--text-secondary); }
 .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
-.countdown-card { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items: center; gap: 20px; background: var(--surface); border-radius: 24px; padding: 18px 20px; box-shadow: var(--surface-ring), var(--shadow); }
+.countdown-card { display: grid; grid-template-columns: minmax(0,1fr); align-items: center; gap: 20px; background: var(--surface); border-radius: 24px; padding: 18px 20px; box-shadow: var(--surface-ring), var(--shadow); }
 .countdown-primary { text-align: center; min-width: 0; }
 .countdown-label { color: var(--text-secondary); font-size: 13px; }
 .countdown { font-size: 56px; letter-spacing: -.03em; font-weight: 550; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; min-height: 68px; }
 .countdown-state { font-size: 26px; letter-spacing: 0; white-space: normal; }
-.countdown-detail { min-width: 0; }
-.timer-state { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--accent); padding: 4px 10px; background: var(--accent-wash); border-radius: 24px; margin-bottom: 6px; }
-.countdown-detail > p { color: var(--text-secondary); font-size: 13px; }
 .runtime-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin: 12px 0; }
 .pause-group { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; flex: 1; min-width: 0; }
-.interval-setting { min-width: 0; }
-.interval-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
-.interval-label { display: grid; gap: 4px; font-size: 12px; color: var(--text-secondary); }
-.interval-label select { width: 132px; font-size: 14px; }
-.custom-interval { width: 132px; }
-.custom-interval input { font-size: 14px; }
 .action-reason { flex-basis: 100%; }
 .section { padding: 12px; background: var(--surface); border-radius: 24px; box-shadow: var(--surface-ring); margin-bottom: 12px; }
 .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
@@ -168,7 +159,6 @@ svg { flex: 0 0 auto; }
 .tray-shell .countdown-state { font-size: 22px; }
 .tray-shell .runtime-actions { margin-bottom: 16px; gap: 8px; }
 .tray-shell .runtime-actions > button { width: 100%; }
-.tray-shell .pause-group select { flex: 1; max-width: none; }
 .tray-footer { display: flex; gap: 8px; border-top: 1px solid var(--soft-line); padding-top: 16px; }
 .tray-footer button { flex: 1; }
 .flash-overlay { position: fixed; inset: 0; opacity: 0; pointer-events: none; }
@@ -187,4 +177,4 @@ svg { flex: 0 0 auto; }
 @media (prefers-reduced-motion: reduce) { button, .toggle-row input, .toggle-row input::after { transition: none; } button:active:not(:disabled) { scale: 1; transform: none; } }
 @media (prefers-reduced-transparency: reduce) { .sidebar, .status-pill, .rest-panel { backdrop-filter: none; background: var(--surface); } }
 @media (max-width: 760px) { .app-shell { grid-template-columns: 64px minmax(0,1fr); } .sidebar { padding: 16px 8px; } .sidebar .brand { justify-content: center; margin-bottom: 20px; } .sidebar .brand > div, .nav-item > span, .sidebar-note { display: none; } .nav-item { justify-content: center; padding: 10px; position: relative; } .main-content { padding: 16px; } }
-@media (max-width: 580px) { .main-content { padding: 16px 12px; } .page-heading { flex-wrap: wrap; gap: 8px; } .choice-grid, .field-grid, .countdown-card { grid-template-columns: 1fr; } .countdown-card { gap: 8px; text-align: center; } .countdown { font-size: 52px; } .preview-bar, .section-heading { flex-wrap: wrap; } .theme-choices { flex-wrap: wrap; } }
+@media (max-width: 580px) { .main-content { padding: 16px 12px; } .page-heading { flex-wrap: wrap; gap: 8px; } .choice-grid, .field-grid { grid-template-columns: 1fr; } .countdown-card { gap: 8px; text-align: center; } .countdown { font-size: 52px; } .preview-bar, .section-heading { flex-wrap: wrap; } .theme-choices { flex-wrap: wrap; } }

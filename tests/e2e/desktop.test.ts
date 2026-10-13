@@ -495,31 +495,10 @@ test('compact controls retain focus, exact press feedback and instant theme swap
   }
 });
 
-test('overview reminder interval presets and custom minutes autosave while pause requires explicit resume', async () => {
+test('overview pause requires explicit resume', async () => {
   await expect(page.getByRole('heading', { name: '当前提醒规则', exact: true })).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: '暂停时长', exact: true })).toHaveCount(0);
   await expect(page.getByText('直到手动恢复', { exact: true })).toHaveCount(0);
-  const interval = page.getByRole('combobox', { name: '提醒间隔', exact: true });
-  await expect(interval.locator('option')).toHaveText(['20 分钟', '30 分钟', '40 分钟', '自定义分钟']);
-  for (const value of [20, 30, 40]) {
-    await interval.selectOption(String(value));
-    await expect.poll(async () => (await snapshot()).settings.timer.intervalMinutes).toBe(value);
-  }
-  await interval.selectOption('custom');
-  const custom = page.getByRole('spinbutton', { name: '自定义提醒间隔', exact: true });
-  await custom.fill('0');
-  await expect(custom).toHaveAttribute('aria-invalid', 'true');
-  expect((await snapshot()).settings.timer.intervalMinutes).toBe(40);
-  await custom.fill('37');
-  await custom.press('Tab');
-  await expect.poll(async () => (await snapshot()).settings.timer.intervalMinutes).toBe(37);
-  const persisted = JSON.parse(await readFile(path.join(dataDirectory, 'settings.json'), 'utf8'));
-  expect(persisted.settings.timer.intervalMinutes).toBe(37);
-  await page.getByRole('button', { name: '触发条件', exact: true }).click();
-  await expect(page.getByRole('spinbutton', { name: /提醒间隔/ })).toHaveValue('37');
-  await page.getByRole('button', { name: '概览', exact: true }).click();
-  await expect(interval).toHaveValue('custom');
-  await expect(custom).toHaveValue('37');
   await page.getByRole('button', { name: '暂停', exact: true }).click();
   const paused = await snapshot();
   expect(paused.status).toBe('paused');
