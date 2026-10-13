@@ -1,0 +1,47 @@
+{
+  "verifiedOn": "2026-10-13 Asia/Shanghai",
+  "recordedAt": "2026-10-13T01:26:42.261Z",
+  "platform": "darwin",
+  "arch": "arm64",
+  "packaged": true,
+  "version": "1.0.2",
+  "electron": "44.7.0",
+  "isolatedUserData": true,
+  "triggerAndReminderSaveBarsAbsent": true,
+  "automaticChangesPersisted": true,
+  "settings": {
+    "schemaVersion": 1,
+    "timer": {
+      "mode": "fixed",
+      "intervalMinutes": 42,
+      "activitySource": "combined",
+      "activeWindowSeconds": 60,
+      "longIdleMinutes": 10
+    },
+    "reminder": {
+      "visual": "mask",
+      "soundEnabled": false,
+      "soundId": "gentle",
+      "volumePercent": 50,
+      "flashOpacityPercent": 20,
+      "flashColor": "theme-derived",
+      "fadeInMs": 600,
+      "holdMs": 800,
+      "fadeOutMs": 600,
+      "snoozeMinutes": 5,
+      "screenScope": "all",
+      "screenIds": [],
+      "message": "请看看远处"
+    },
+    "appearance": {
+      "theme": "system",
+      "showTrayCountdown": true,
+      "reduceMotion": "system",
+      "reduceTransparency": "system"
+    },
+    "general": {
+      "launchAtLogin": false
+    }
+  },
+  "complete": true
+}

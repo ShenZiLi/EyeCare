@@ -11,9 +11,10 @@ This contract covers overview, trigger settings, reminder settings, general sett
 | Surface / operation | Contract |
 |---|---|
 | Overview | renders RuntimeSnapshot; pause/resume/remindNow via bridge |
-| TriggerSettings | draft SettingsV1 + expectedRevision; one validated save |
-| ReminderSettings | visual selection + independent sound + preview |
+| TriggerSettings | per-field validated automatic saves; no manual save/discard bar |
+| ReminderSettings | automatic visual/sound/parameter saves + isolated preview |
 | GeneralSettings | immediate theme/countdown preference commits |
+| SettingsEditor | serialized field intents merged into latest effective settings, validated `saveSettings(expectedRevision, settings)` |
 | TrayPanel | same RuntimeSnapshot + identical commands |
 | Mask | resolveReminder with ID/generation/action |
 | Preview | separate preview identity; never resolves a real reminder |
@@ -27,7 +28,9 @@ This contract covers overview, trigger settings, reminder settings, general sett
 - Windows/Linux tray numeric icons expose units and exact time in the panel; Mac can show full adjacent title. Do not claim equal native typography across platforms.
 - Disabled capabilities include a visible reason; users can return to settings without losing their draft.
 - Labels remain visible. Timer/source parameters use explicit units. Field errors appear beside the control; values are preserved after failure.
-- Theme/countdown toggles save immediately without timer reset. Other forms commit as a valid batch; leaving unsaved drafts offers keep/discard.
+- Trigger/reminder choices, switches and selects save immediately. Numeric values and reminder text use a 300 ms burst delay with blur flush. Both pages remove the manual save/discard bar and show pending/success/error text. Validation does not silently normalize or persist invalid input.
+- Retain per-field intents across asynchronous responses and snapshots. Compose each serialized save from the newest effective settings, never the full stale draft; only acknowledgement of the same intent version clears it. Unrelated invalid fields cannot block valid edits. Coupled idle/channel/screen parameters must still pass the full settings validator together.
+- Theme/countdown toggles continue to save immediately without timer reset. General settings' other fields remain manual, with keep/discard navigation for manual drafts only. Autosaved edits do not require a leave-page confirmation; failed/invalid values remain recoverable after navigation.
 - Main window is approximately 880x620, minimum 640x520 logical pixels; layout adapts without clipping controls.
 - Text uses system sans with CJK fallback; tabular digits stabilize countdown width. Ordinary text target >=4.5:1, important controls/icons >=3:1.
 - Glass is concentrated in navigation/controls; content has stable surfaces. Reduced transparency replaces glass with opaque semantic equivalents.
@@ -41,11 +44,13 @@ This contract covers overview, trigger settings, reminder settings, general sett
 
 | UI condition | Response |
 |---|---|
-| invalid time or incompatible window/idle values | inline message, save blocked, keep input |
-| no visual and sound disabled/zero | explain missing channel, save blocked |
+| invalid time or incompatible window/idle values | keep input and prior effective value, mark related fields, save unrelated valid changes |
+| no visual and sound disabled/zero | explain missing channel, retain pending coupled edits; persist when subsequent channel edits become valid |
 | selected screen unplugged | temporary primary fallback plus message, retain saved intent |
 | theme/countdown save fails | revert to last effective choice with error feedback |
 | revision conflict | retain draft, show latest effective settings, offer reapply |
+| automatic persistence/connection failure | keep effective settings and pending intents, show failure and enabled retry; no retry storm |
+| older save response or snapshot | reject stale revision/sequence; never overwrite newer draft or appearance |
 | preview requested while locked/sleeping | no effects, show suppression reason on return |
 | unsupported input/lock/overlay capability | explain precise unavailable function, never fake success |
 | failed notification or audio | report channel failure, do not silently upgrade visual intrusion |
@@ -60,7 +65,7 @@ This contract covers overview, trigger settings, reminder settings, general sett
 
 ## 6. Tests Required
 
-UI tests: both themes, manual override/system sync, persistence, countdown toggle without reset, validation and preserved drafts, keyboard/focus order, real-vs-preview action isolation, multi-screen acknowledgement, rule summaries and state labels.
+UI tests: both themes, manual override/system sync, persistence, countdown toggle without reset, validation and preserved drafts, keyboard/focus order, real-vs-preview action isolation, multi-screen acknowledgement, rule summaries and state labels. Autosave proof must cover no save/discard buttons on both pages, rapid edits and restart persistence, invalid-to-valid corrections, cross-section independence, coupled-channel recovery, disk failure/retry, and manual general behavior. Pure controller tests must exercise delayed response ordering, external revision conflicts, empty numeric values and no-op writes.
 
 Visual/native checks: actual light/dark desktop backgrounds, composite contrast, 100/125/150/200% scale, CJK long labels, large fonts, reduced motion/transparency, tray digits, no focus theft from flash, usable Escape on mask. None of these is claimed to have passed at the design stage.
 
@@ -74,9 +79,9 @@ Wrong: a close button and “知道了” have identical rest semantics. Correct
 
 ## Implemented conventions
 
-- `App` owns the form `draft`, effective `base` and expected `revision`; snapshots never overwrite dirty input. Invalid saves and version conflicts retain it; reapply explicitly uses latest effective revision. Immediate appearance commits merge only theme/countdown into existing drafts.
+- `SettingsEditor` owns effective snapshots and versioned field intents; `App` subscribes to editor state. Trigger/reminder handlers use automatic intent mode; General handlers use manual mode except immediate theme/countdown. Snapshots update the baseline without losing pending input. Server conflicts keep intents and require explicit reapply against a fresh snapshot; only accepted snapshot revision/sequence may update appearance.
 - Preview active controls and terminal feedback derive from shared `currentPreviewId` / `latestPreviewResult`; never maintain a local boolean that stays active after the coordinator closes its windows. Automatic completion, acknowledgement, Escape, cancellation and failure each update the main page. Failed startup stays visible in the preview dialog and cannot show success feedback.
 - `Overlay` mounts an event keyed by ID/generation. Creation-time parameters start once after `overlayReady`; appearance messages update tokens without restarting audio or flash. Audio `play()` resolution sends `overlaySoundStarted`; end/error sends one channel result. Window destruction cancels animation, timers and audio.
 - `Field` and `Toggle` use visible wrapping labels; numeric controls keep units and preserve invalid/empty input. Sidebar icon-only mode keeps explicit accessible names.
-- `Modal` and masks trap Tab/Shift+Tab, offer button exits, support Escape and restore local focus. Saved scroll padding and control scroll margins reserve 132px against the sticky save bar so focus is not obscured.
+- `Modal` and masks trap Tab/Shift+Tab, offer button exits, support Escape and restore local focus. Scroll padding protects the General sticky save bar; instant-settings controls use 24px bottom scroll margin and contain no sticky save bar.
 - Static production CSP permits only local scripts/media. Development uses a local Vite nonce for React refresh; no production remote page or renderer Node access is enabled.

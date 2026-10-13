@@ -6,7 +6,7 @@ Read `ui-contract.md`, MASTER.md, the active PRD and shared bridge types. Modify
 
 ## Component signatures
 
-`App({tray?:boolean})` renders a runtime snapshot and draft settings. `Overlay` consumes `OverlayState`. `Field`, `Toggle`, `Section`, `Notice` and `Modal` provide shared form/accessibility structure. Pages use the one SVG icon family from lucide-react.
+`App({tray?:boolean})` renders a runtime snapshot and `SettingsEditor` state. `SettingsEditor.edit(next, auto, immediate?)`, `flush()`, `retry()`, `saveManual()` and `accept(snapshot)` own validated field intents and serialize the existing save bridge. `Overlay` consumes `OverlayState`. `Field`, `Toggle`, `Section`, `Notice` and `Modal` provide shared form/accessibility structure. Pages use the one SVG icon family from lucide-react.
 
 ## Theme and layout contracts
 
@@ -14,11 +14,11 @@ All colors use centralized semantic CSS variables. Follow system/light/dark from
 
 ## Validation and error behavior
 
-Server field errors appear beside visible labels. Draft, base and expected revision stay distinct; failed save or background preference update cannot discard user input. Theme/countdown commits are immediate and do not save other unsaved fields. Failed preview errors remain inside the active dialog.
+Server field errors appear beside visible labels. Trigger/reminder edits autosave: discrete edits immediately, numeric/text edits after 300 ms or blur. Field intent versions, baseline settings and expected revision stay distinct; failed saves or newer snapshots cannot discard user input. Validate a composed candidate using the shared pure validator; prune only invalid/dependent intents while persisting unrelated valid fields. Theme/countdown commits do not save manual General drafts. A failed manual save must retain its manual retry context; error feedback must identify the right recovery action. Failed preview errors remain inside the active dialog. Preview uses current reminder inputs with effective non-reminder settings, so invalid timer input cannot block effect preview.
 
 ## Good/base/bad cases
 
-Good: Tab scrolls a switch fully above the sticky save bar. Base: normal theme change updates tokens while the reminder animation consumes its original options. Bad: theme updates restart a flash, Escape confirms rest, numeric invalid values silently normalize, a preview mutates the main engine.
+Good: Tab scrolls a switch fully above the General sticky save bar; instant pages have no save bar. Base: normal theme change updates tokens while the reminder animation consumes its original options. Bad: theme updates restart a flash, Escape confirms rest, numeric invalid values silently normalize, an old save replaces a later edit, a preview mutates the main engine.
 
 ## Quality check
 

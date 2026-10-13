@@ -1,5 +1,5 @@
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
-import { mkdtemp, mkdir, readFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import type { RuntimeSnapshot, SettingsV1 } from '../../app/shared/contracts';
@@ -12,8 +12,45 @@ const contrast = (a: number[], b: number[]): number => { const left = luminance(
 let desktop: ElectronApplication;
 let page: Page;
 let dataDirectory: string;
+const screenshot = (name: string) => `docs/screenshots/${process.platform === 'darwin' ? 'macos-' : ''}${name}.png`;
 const snapshot = () => page.evaluate(() => window.eyeCare.getSnapshot());
 const save = (revision: number, settings: SettingsV1) => page.evaluate(({ revision, settings }) => window.eyeCare.saveSettings(revision, settings), { revision, settings });
+
+type InputDiagnostics = { events: Record<string, unknown>[]; dispose: () => void };
+type DiagnosticWindow = Window & { eyeCareInputDiagnostics?: InputDiagnostics };
+async function captureReminderInput(target: Page) {
+  await target.evaluate(() => {
+    const events: Record<string, unknown>[] = [];
+    const isReminderInput = (element: unknown): element is HTMLInputElement => element instanceof HTMLInputElement && element.type === 'text' && !!element.closest('label')?.textContent?.includes('提醒文字');
+    const record = (entry: Record<string, unknown>) => {
+      events.push({ at: performance.now(), documentFocused: document.hasFocus(), ...entry });
+      if (events.length > 200) events.shift();
+    };
+    const observe = (event: Event) => {
+      if (!isReminderInput(event.target)) return;
+      record({ type: event.type, value: event.target.value, data: 'data' in event ? (event as InputEvent).data : null, inputType: 'inputType' in event ? (event as InputEvent).inputType : null, isComposing: 'isComposing' in event ? (event as InputEvent).isComposing : null, inputFocused: document.activeElement === event.target, trusted: event.isTrusted });
+    };
+    const names = ['beforeinput', 'input', 'change', 'compositionstart', 'compositionupdate', 'compositionend', 'focus', 'blur'];
+    names.forEach(name => document.addEventListener(name, observe, true));
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!;
+    Object.defineProperty(HTMLInputElement.prototype, 'value', {
+      ...descriptor,
+      set(this: HTMLInputElement, value: string) {
+        const before = descriptor.get!.call(this);
+        descriptor.set!.call(this, value);
+        if (isReminderInput(this)) record({ type: 'dom-value-set', before, value: this.value, inputFocused: document.activeElement === this });
+      },
+    });
+    (window as DiagnosticWindow).eyeCareInputDiagnostics = {
+      events,
+      dispose: () => {
+        names.forEach(name => document.removeEventListener(name, observe, true));
+        Object.defineProperty(HTMLInputElement.prototype, 'value', descriptor);
+        delete (window as DiagnosticWindow).eyeCareInputDiagnostics;
+      },
+    };
+  });
+}
 
 test.beforeEach(async () => {
   dataDirectory = await mkdtemp(path.join(os.tmpdir(), 'eyecare-e2e-'));
@@ -36,7 +73,7 @@ test('native app launches with isolated renderer and documented defaults', async
   expect(await page.evaluate(() => ({ node: typeof (window as unknown as { require?: unknown }).require, process: typeof (window as unknown as { process?: unknown }).process }))).toEqual({ node: 'undefined', process: 'undefined' });
   expect(current.capabilities.lock.state).toBe('available');
   await mkdir('docs/screenshots', { recursive: true });
-  await page.screenshot({ path: 'docs/screenshots/overview-system.png' });
+  await page.screenshot({ path: screenshot('overview-system') });
 });
 
 test('theme/countdown preferences save immediately, preserve pause, survive restart', async () => {
@@ -56,7 +93,7 @@ test('theme/countdown preferences save immediately, preserve pause, survive rest
   expect(after.status).toBe('paused'); expect(after.elapsedActiveMs).toBe(paused.elapsedActiveMs);
   await page.getByRole('switch', { name: /在托盘显示倒计时/ }).focus();
   expect(await page.evaluate(() => { const input = document.querySelector<HTMLInputElement>('input[role="switch"]:focus')!; const field = input.getBoundingClientRect(); const save = document.querySelector('.save-bar')!.getBoundingClientRect(); return field.bottom <= save.top && field.top >= 0; })).toBe(true);
-  await page.screenshot({ path: 'docs/screenshots/settings-dark.png' });
+  await page.screenshot({ path: screenshot('settings-dark') });
   const persisted = JSON.parse(await readFile(path.join(dataDirectory, 'settings.json'), 'utf8'));
   expect(JSON.stringify(persisted)).toContain('dark');
   await desktop.close();
@@ -73,22 +110,24 @@ test('invalid drafts stay visible; saved configuration remains valid; minimum wi
   await page.getByRole('button', { name: '触发条件', exact: true }).click();
   const input = page.getByRole('spinbutton', { name: /累计活跃阈值/ });
   await input.fill('0');
-  await page.getByRole('button', { name: '保存设置', exact: true }).click();
+  await expect(page.getByRole('button', { name: '保存设置', exact: true })).toHaveCount(0);
   await expect(page.getByRole('alert').first()).toBeVisible();
   await expect(input).toHaveValue('0');
   expect((await snapshot()).settings.timer.intervalMinutes).toBe(30);
   await page.getByRole('button', { name: '提醒方式', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: '保留尚未保存的修改？' })).toBeVisible();
-  await page.getByRole('button', { name: '保留修改并离开', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('radio', { name: /确认蒙版/ }).check();
+  await expect.poll(async () => (await snapshot()).settings.reminder.visual).toBe('mask');
+  await page.getByRole('button', { name: '通用设置', exact: true }).click();
+  await page.getByRole('button', { name: '暗色', exact: true }).click();
+  await expect.poll(async () => (await snapshot()).settings.appearance.theme).toBe('dark');
   await page.getByRole('button', { name: '触发条件', exact: true }).click();
-  await page.getByRole('button', { name: '保留修改并离开', exact: true }).click();
   await expect(input).toHaveValue('0');
   await input.fill('31');
-  await page.getByRole('button', { name: '保存设置', exact: true }).click();
   await expect.poll(async () => (await snapshot()).settings.timer.intervalMinutes).toBe(31);
   await desktop.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows().find(window => window.getTitle().includes('EyeCare'))?.setSize(640, 520); });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: 'docs/screenshots/trigger-compact.png' });
+  await page.screenshot({ path: screenshot('trigger-compact') });
 });
 
 test('preview mask does not confirm rest; real mask confirms once; Escape skips', async () => {
@@ -106,7 +145,7 @@ test('preview mask does not confirm rest; real mask confirms once; Escape skips'
   expect((await page.evaluate(() => window.eyeCare.remindNow())).ok).toBe(true);
   const mask = await realWindow;
   await expect(mask.getByRole('button', { name: '知道了', exact: true })).toBeVisible();
-  await mask.screenshot({ path: 'docs/screenshots/mask-light.png' });
+  await mask.screenshot({ path: screenshot('mask-light') });
   const colors = await mask.evaluate(() => ({ panel: getComputedStyle(document.querySelector('.rest-panel')!).backgroundColor, veil: getComputedStyle(document.querySelector('.rest-backdrop')!).backgroundColor, primary: getComputedStyle(document.querySelector('.rest-panel h1')!).color, secondary: getComputedStyle(document.querySelector('#rest-description')!).color }));
   for (const desktopColor of [[0, 0, 0], [255, 255, 255]]) {
     const surface = over(rgb(colors.panel), over(rgb(colors.veil), desktopColor));
@@ -184,7 +223,7 @@ test('preview UI clears active state after flash and mask close without changing
   const after = await snapshot();
   expect(after.restConfirmedCount).toBe(before.restConfirmedCount);
   expect(after.currentReminderId).toBeNull();
-  expect(after.settings.reminder.visual).toBe('flash');
+  expect(after.settings.reminder.visual).toBe('mask');
   expect(after.elapsedActiveMs).toBeGreaterThanOrEqual(before.elapsedActiveMs);
   expect(after.remainingMs!).toBeLessThanOrEqual(before.remainingMs!);
 });
@@ -219,5 +258,75 @@ test('failed preview preparation reports failure and never leaves an active prev
       if (state.previewTestLoadFile) BrowserWindow.prototype.loadFile = state.previewTestLoadFile;
       delete state.previewTestLoadFile;
     });
+  }
+});
+
+
+test('trigger and reminder edits save without buttons, keep rapid changes and survive restart', async ({}, testInfo) => {
+  const diagnosticPage = page;
+  await captureReminderInput(diagnosticPage);
+  try {
+    await page.getByRole('button', { name: '触发条件', exact: true }).click();
+    await page.getByRole('radio', { name: /固定周期/ }).check();
+    await page.getByRole('spinbutton', { name: /提醒周期/ }).fill('41');
+    await page.getByRole('spinbutton', { name: /长空闲阈值/ }).fill('12');
+    await page.getByRole('button', { name: '提醒方式', exact: true }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '保存设置', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '放弃修改', exact: true })).toHaveCount(0);
+    await page.getByRole('radio', { name: /确认蒙版/ }).check();
+    await page.getByRole('switch', { name: /启用声音提醒/ }).click();
+    await page.getByLabel('内置音效').selectOption('bell');
+    await page.getByRole('spinbutton', { name: /音量/ }).fill('38');
+    await page.getByLabel('提醒文字').fill('请看看远处');
+    await page.getByLabel('屏幕范围').selectOption('primary');
+    await expect.poll(async () => (await snapshot()).settings).toMatchObject({ timer: { mode: 'fixed', intervalMinutes: 41, longIdleMinutes: 12 }, reminder: { visual: 'mask', soundEnabled: true, soundId: 'bell', volumePercent: 38, message: '请看看远处', screenScope: 'primary' } });
+    const saved = (await snapshot()).settings;
+    const persisted = JSON.parse(await readFile(path.join(dataDirectory, 'settings.json'), 'utf8'));
+    expect(persisted.settings).toEqual(saved);
+    await desktop.close();
+    const environment = Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[0] !== 'ELECTRON_RUN_AS_NODE'));
+    desktop = await electron.launch({ args: [path.resolve('.')], env: { ...environment, EYECARE_TEST_USER_DATA: dataDirectory } });
+    page = await desktop.firstWindow();
+    await expect(page.getByRole('heading', { name: '概览', exact: true })).toBeVisible();
+    expect((await snapshot()).settings).toEqual(saved);
+  } catch (error) {
+    const input = await diagnosticPage.evaluate(() => ({
+      events: (window as DiagnosticWindow).eyeCareInputDiagnostics?.events ?? [],
+      value: [...document.querySelectorAll<HTMLInputElement>('input[type="text"]')].find(element => element.closest('label')?.textContent?.includes('提醒文字'))?.value ?? null,
+      documentFocused: document.hasFocus(),
+    })).catch(() => null);
+    const latest = await snapshot().catch(() => null);
+    await testInfo.attach('rapid-settings-input-diagnostics', { body: JSON.stringify({ input, latestSettings: latest?.settings, settingsRevision: latest?.settingsRevision }, null, 2), contentType: 'application/json' });
+    throw error;
+  } finally {
+    await diagnosticPage.evaluate(() => (window as DiagnosticWindow).eyeCareInputDiagnostics?.dispose()).catch(() => {});
+  }
+});
+
+test('coupled invalid reminder selections automatically recover and disk failure preserves input for retry', async () => {
+  await page.getByRole('button', { name: '提醒方式', exact: true }).click();
+  await page.getByRole('radio', { name: /无视觉提醒/ }).check();
+  await expect(page.getByRole('alert').first()).toBeVisible();
+  expect((await snapshot()).settings.reminder.visual).toBe('flash');
+  await page.getByRole('switch', { name: /启用声音提醒/ }).click();
+  await expect.poll(async () => (await snapshot()).settings.reminder.visual).toBe('none');
+  const settingsPath = path.join(dataDirectory, 'settings.json');
+  const preservedPath = path.join(dataDirectory, 'preserved-settings.json');
+  await rename(settingsPath, preservedPath); await mkdir(settingsPath);
+  try {
+    await page.getByRole('radio', { name: /确认蒙版/ }).check();
+    await expect(page.getByRole('button', { name: '重试自动保存', exact: true })).toBeEnabled();
+    await expect(page.getByRole('radio', { name: /确认蒙版/ })).toBeChecked();
+    expect((await snapshot()).settings.reminder.visual).toBe('none');
+    await rm(settingsPath, { recursive: true }); await rename(preservedPath, settingsPath);
+    await page.getByRole('button', { name: '重试自动保存', exact: true }).click();
+    await expect.poll(async () => (await snapshot()).settings.reminder.visual).toBe('mask');
+    await expect(page.getByRole('button', { name: '重试自动保存', exact: true })).toHaveCount(0);
+  } finally {
+    if (await readFile(preservedPath).then(() => true, () => false)) {
+      await rm(settingsPath, { recursive: true, force: true });
+      await rename(preservedPath, settingsPath);
+    }
   }
 });
