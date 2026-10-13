@@ -36,12 +36,11 @@ export class TrayPresenter {
     const counting = ['counting', 'short_idle'].includes(snapshot.status);
     const text = snapshot.status === 'paused' ? 'P' : counting ? trayLabel(remaining) : snapshot.status === 'capability_error' ? '!' : '-';
     const dark = nativeTheme.shouldUseDarkColors;
-    // macOS 用标题显示完整倒计时，因此始终保留模板图标，不再叠加数字分钟图标；数字图标仅供 Windows/Linux 使用。
-    const numeric = showing && process.platform !== 'darwin';
-    const key = `${numeric ? text : 'eye'}:${dark}`;
+    const darwin = process.platform === 'darwin';
+    // macOS 菜单栏只用标题显示倒计时，不显示图标；Windows/Linux 继续使用数字或占位图标。
+    const key = darwin ? (showing ? 'text' : 'eye') : `${showing ? text : 'eye'}:${dark}`;
     if (key !== this.iconKey) {
-      const image = numeric ? numericTrayIcon(text, dark) : this.standardIcon(dark);
-      if (process.platform === 'darwin') image.setTemplateImage(true);
+      const image = darwin ? (showing ? nativeImage.createEmpty() : this.standardIcon(dark)) : showing ? numericTrayIcon(text, dark) : this.standardIcon(dark);
       this.tray.setImage(image);
       this.iconKey = key;
     }
