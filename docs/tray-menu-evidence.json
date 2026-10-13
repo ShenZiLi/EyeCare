@@ -1,0 +1,39 @@
+{
+  "verifiedOn": "2026-10-13 Asia/Shanghai",
+  "recordedAt": "2026-10-13T06:04:01.281146+00:00",
+  "platform": "darwin",
+  "arch": "arm64",
+  "packaged": true,
+  "version": "1.0.2",
+  "complete": true,
+  "tests": {
+    "typecheck": true,
+    "lint": true,
+    "unitIntegration": 185,
+    "customPanelRemoved": true,
+    "windowsBeforeClick": 1,
+    "windowsAfterClick": 1,
+    "macClickListeners": 0,
+    "nativeMenuLabels": [
+      "EyeCare · 正在计时",
+      "打开概览",
+      "暂停",
+      "立即提醒",
+      "设置",
+      "退出 EyeCare"
+    ],
+    "nativeMenuOpens": true,
+    "overviewCallback": true,
+    "pauseResumeCallbacks": true,
+    "settingsCallback": true,
+    "countdownTitle": "30:00",
+    "loginUnchanged": true,
+    "fixturesRemoved": true
+  },
+  "zipSha256": "0e672732dc8c808464789f7d914935546201040346f24a7a8e7ec2a046f2ca0d",
+  "verificationMethod": "Isolated actual packaged Electron process; forwarding native Tray methods and invoking menu callbacks. Native menu popup checked without an additional BrowserWindow. Final user app restarted through native application menu.",
+  "limits": [
+    "Native Windows/Linux left-click behavior remains host acceptance",
+    "Physical pointer-click tray acceptance remains separate from emitted-event/native-popup observation"
+  ]
+}

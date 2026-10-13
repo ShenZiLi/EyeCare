@@ -4,7 +4,7 @@ Current: user-approved eight-choice SettingsV2,2026-10-13. Existing Liquid Glass
 
 ## 1. Scope / Trigger
 
-Overview,trigger/reminder/general pages,tray panel,preview and mask are presentation-only. Settings are8 core choices; defaults are centralized shared product behavior,not an advanced form or hidden preference.
+Overview,trigger/reminder/general pages,native tray menu,preview and mask are presentation-only. Settings are8 core choices; defaults are centralized shared product behavior,not an advanced form or hidden preference.
 
 ## 2. Signatures
 
@@ -24,9 +24,9 @@ Overview,trigger/reminder/general pages,tray panel,preview and mask are presenta
 - Only-sound atomically selects visual=none and sound=true. Sound toggle is visibly disabled with an explanation while it is the sole channel. Server validation still rejects none+false.
 - All discrete edits autosave immediately,numbers after300ms or blur. Preserve versioned field intents separately from effective baseline; serialize saves,never overwrite later input with older responses. Invalid unrelated fields do not block valid edits. Conflict or persistence/OS failure retains intent and offers retry/reapply,without a retry storm.
 - General controls display effective values on failure;OS login failure must not imply successful enablement. Restore once confirmed replaces all core values via the same queue and autosaves,with visible failure if transaction fails.
-- Overview keeps state,time,pause/resume/remindNow and short rules. Timer ownership stays in main. Tray follows the same snapshot;countdown display does not decide eligibility.
+- Overview keeps state,time,pause/resume/remindNow and short rules. Timer ownership stays in main. Tray follows the same snapshot;countdown display does not decide eligibility. Clicking the tray opens only its native menu;no custom countdown panel is created.
 - General shows only relevant capability abnormalities;unused mouse-only diagnostics are omitted. Linux unknown tray retains an accessible main window. Healthy systems do not show a diagnostic list.
-- Theme system/light/dark persists immediately,affects main/panel/overlay tokens and does not reset time. Motion/transparency automatically respect OS;no app overrides.
+- Theme system/light/dark persists immediately,affects main/overlay tokens and does not reset time. Motion/transparency automatically respect OS;no app overrides.
 - Mask has Know/知道了 and close/Escape. Acknowledge closes all linked masks,confirms once and starts a full next cycle;skip starts a cycle without rest confirmation. No延期 action exists. Preview acknowledgement only closes preview.
 - Flash remains nonfocusable and click-through,automatically settles without rest confirmation. Current event options are immutable;appearance refresh does not restart audio/effect.
 - Labels/units remain visible. Error text is near its field,with accessible association. Pending/success/failure text uses status/alert semantics without each-second timer announcements.

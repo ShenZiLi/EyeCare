@@ -37,7 +37,7 @@ const presentedSnapshot = (): RuntimeSnapshot => {
 const hasConfirmedTray = (): boolean => !!tray?.available && engine?.getSnapshot().capabilities.tray.state === 'available';
 function publish(update?: EngineUpdate) {
   const snapshot = presentedSnapshot();
-  for (const window of [mainWindow, tray?.window]) if (window && !window.isDestroyed()) window.webContents.send('eyecare:snapshot-updated', snapshot);
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('eyecare:snapshot-updated', snapshot);
   tray?.update(snapshot);
   const key = `${snapshot.theme}:${snapshot.reduceMotion}:${snapshot.reduceTransparency}`;
   if (key !== appearanceKey) { appearanceKey = key; coordinator?.syncAppearance(); }
@@ -74,7 +74,7 @@ async function showMain(settings = false) {
       event.preventDefault();
       if (!explainedBackground) {
         explainedBackground = true;
-        void dialog.showMessageBox(mainWindow!, { type: 'info', title: 'EyeCare 继续在后台运行', message: '关闭窗口后，护眼提醒会继续运行。', detail: '点击系统托盘图标可再次打开；选择“退出 EyeCare”才会停止提醒。', buttons: ['知道了'] }).then(() => mainWindow?.hide());
+        void dialog.showMessageBox(mainWindow!, { type: 'info', title: 'EyeCare 继续在后台运行', message: '关闭窗口后，护眼提醒会继续运行。', detail: '在托盘菜单选择“打开概览”可再次打开；选择“退出 EyeCare”才会停止提醒。', buttons: ['知道了'] }).then(() => mainWindow?.hide());
       } else mainWindow?.hide();
     });
     mainWindow.on('closed', () => { mainWindow = null; });
@@ -86,12 +86,12 @@ async function showMain(settings = false) {
 function quit() { quitting = true; coordinator?.cancel(); if (interval) clearInterval(interval); adapter?.dispose(); tray?.dispose(); app.quit(); }
 
 function registerIPC() {
-  const handle = (channel: string, roles: ('main' | 'tray' | 'overlay')[], callback: (event: Electron.IpcMainInvokeEvent, value: unknown) => unknown | Promise<unknown>, raw = false) => {
+  const handle = (channel: string, roles: ('main' | 'overlay')[], callback: (event: Electron.IpcMainInvokeEvent, value: unknown) => unknown | Promise<unknown>, raw = false) => {
     ipcMain.handle(`eyecare:${channel}`, (event, value) => {
       const run = async () => {
         try {
           if (event.senderFrame !== event.sender.mainFrame) throw new CommandError({ code: 'UNAUTHORIZED', message: '不受信任的窗口' });
-          const role = event.sender === mainWindow?.webContents ? 'main' : event.sender === tray.window?.webContents ? 'tray' : coordinator.getOverlay(event.sender.id) ? 'overlay' : null;
+          const role = event.sender === mainWindow?.webContents ? 'main' : coordinator.getOverlay(event.sender.id) ? 'overlay' : null;
           if (!role || !roles.includes(role)) throw new CommandError({ code: 'UNAUTHORIZED', message: '此窗口无权执行操作' });
           const source = event.senderFrame?.url ?? '';
           if (!isTrustedSurface(event.sender.id, source)) throw new CommandError({ code: 'UNAUTHORIZED', message: '不受信任的页面来源' });
@@ -107,8 +107,8 @@ function registerIPC() {
       return operation;
     });
   };
-  handle('snapshot', ['main', 'tray', 'overlay'], () => presentedSnapshot(), true);
-  handle('save', ['main', 'tray'], async (_event, value) => {
+  handle('snapshot', ['main', 'overlay'], () => presentedSnapshot(), true);
+  handle('save', ['main'], async (_event, value) => {
     const fields = payload(value, ['expectedRevision', 'settings']);
     if (!Number.isSafeInteger(fields.expectedRevision) || (fields.expectedRevision as number) < 0) throw new CommandError({ code: 'INVALID_COMMAND', message: '配置版本无效' });
     sample();
@@ -120,13 +120,13 @@ function registerIPC() {
     if (!result.ok) return result;
     return apply(engine.updateSettings(result.value.settings, result.value.revision));
   });
-  handle('pause', ['main', 'tray'], (_event, value) => {
+  handle('pause', ['main'], (_event, value) => {
     const fields = payload(value, ['durationMinutes']);
     if (![15, 30, 60, null].includes(fields.durationMinutes as never)) throw new CommandError({ code: 'INVALID_COMMAND', message: '暂停时长无效' });
     sample(); coordinator.cancel(); return apply(engine.pause(fields.durationMinutes as 15 | 30 | 60 | null));
   });
-  handle('resume', ['main', 'tray'], () => { sample(); return apply(engine.resume()); });
-  handle('remind-now', ['main', 'tray'], () => { checkEligible(); return apply(engine.remindNow()); });
+  handle('resume', ['main'], () => { sample(); return apply(engine.resume()); });
+  handle('remind-now', ['main'], () => { checkEligible(); return apply(engine.remindNow()); });
   handle('resolve', ['overlay'], (event, value) => {
     const fields = payload(value, ['id', 'generation', 'action']); const key = identity(fields); const action = reminderAction(fields.action);
     const state = coordinator.getOverlay(event.sender.id);
@@ -163,9 +163,9 @@ function registerIPC() {
     if (state?.event.kind === 'real' && coordinator.matches(key.id, key.generation)) publish(engine.recordReminderChannels(key.id, key.generation, coordinator.channels));
     return { ok: true, value: null };
   });
-  handle('open-settings', ['main', 'tray'], async () => { await showMain(true); return { ok: true, value: null }; });
-  handle('settings-requested', ['main', 'tray'], () => { const requested = settingsRequested; settingsRequested = false; return requested; }, true);
-  handle('quit', ['main', 'tray'], () => { setImmediate(quit); return { ok: true, value: null }; });
+  handle('open-settings', ['main'], async () => { await showMain(true); return { ok: true, value: null }; });
+  handle('settings-requested', ['main'], () => { const requested = settingsRequested; settingsRequested = false; return requested; }, true);
+  handle('quit', ['main'], () => { setImmediate(quit); return { ok: true, value: null }; });
 }
 
 // Electron scopes its single-instance lock to userData. Isolated development

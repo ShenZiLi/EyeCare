@@ -46,6 +46,8 @@ Storage envelope is settings+nonnegative safe-integer revision. Current validati
 
 Login startup uses a stable executable and existing platform API/read-back. `prepareLoginChange(enabled)` captures actual OS state before mutation and returns apply/rollback; `saveWithLogin` must use that capture, never the persisted preference as a rollback substitute. Capture failure is LOGIN_READ_FAILED and prevents all writes. Apply or preference-save failure restores the captured OS state and leaves effective settings unchanged; failed rollback is LOGIN_ROLLBACK_FAILED. Mac captures Electron openAtLogin with read-back. Windows captures only exact owned Run/StartupApproved entries including presence, value kind, unexpanded string and approval bytes using bounded fixed PowerShell; do not touch unrelated entries or execute captured data. Linux captures owned desktop bytes/mode/absence, rejects symlinks and uses exclusive temporary writes/chmod/rename/read-back for restoration. Migration alone does not enable/disable OS login items. Windows owned legacy-path repair retains system approval; unrelated/missing items are untouched.
 
+Tray interaction uses only the existing native context menu. macOS setContextMenu owns click presentation; other platform left-click handlers open that same menu. No custom panel window or panel IPC sender role exists. Menu actions call the same main-owned callbacks; tray countdown/title/tooltip remain snapshot-derived.
+
 ### Time invariants
 
 - One-second native observations integrate eligible elapsed intervals, never constant ticks or renderer clocks.

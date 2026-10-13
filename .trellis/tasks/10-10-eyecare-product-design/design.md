@@ -76,6 +76,8 @@ SettingsEditor字段版本与最新有效baseline独立，离散编辑即时保�
 
 主窗口880x620，最小640x520；现有LiquidGlass语义tokens、CJK系统字体、键盘焦点、亮暗对比度及系统减动/透明度回退保留。概览规则摘要简化；系统能力正常时不展开，只有异常时显示必要原因。
 
+托盘点击仅呈现原生菜单，不创建额外倒计时窗口。Mac沿用setContextMenu的原生点击行为，其他平台左键打开同一菜单；所有操作仍调用主进程既有回调。
+
 ## 跨平台与质量边界
 
 Mac原生连续时钟/合并输入/显式当前会话锁和模板Tray沿用已验证修复。Windows WTS+inputdesktop、稳定Squirrel启动路径、Linux X11/XScreenSaver+会话/桌面双锁检查沿用。未知关键观察停发提醒；Wayland能力不可靠时明确受限。

@@ -2,7 +2,13 @@
 
 Original scope: `.trellis/tasks/10-10-eyecare-product-design/prd.md`, R1–R16 and AC1–AC22. User authorized implementation on 2026-10-10. A local implementation/build is not release-complete acceptance.
 
-## Current V2 evidence — 2026-10-13
+## Tray menu continuation — 2026-10-13
+
+- User requested tray clicks show only the existing native menu. Removed custom panel creation/lifecycle and its IPC sender role. macOS relies on its registered native menu; other platforms left-click opens that same menu. Countdown and menu callbacks remain main-owned.
+- Final typecheck/lint and185 unit/integration cases passed. Rebuilt actual ARM production executable passed an isolated tray probe: one BrowserWindow before/after an emitted click, no custom tray surface, native menu popup, countdown title and working overview/pause/resume/settings callbacks. Login state stayed unchanged and temporary profile was removed. This is emitted-event/native-popup observation, separate from physical pointer-click acceptance and native Windows/Linux verification. Evidence: tray-menu-evidence.json.
+- Final user app was quit through its native application menu and restarted with the rebuilt production renderer. Latest ZIP SHA256: `0e672732dc8c808464789f7d914935546201040346f24a7a8e7ec2a046f2ca0d` (version1.0.2). Earlier hashes below identify earlier builds. Cached Electron archive matched the installed official package checksum; local checksum verification avoided a remote checksum download timeout without disabling integrity checks.
+
+## V2 evidence — 2026-10-13
 
 - Implemented exactly eight autosaved core choices across the three settings pages, fixed internal effect/activity defaults and complete runtime/UI/API snooze removal. Only-sound selection enables its sole channel; restore defaults confirms once; General login failures display the unchanged effective value and retain retry intent.
 - Final `npm run check` passed TypeScript, ESLint and **185 unit/integration cases**. Final actual Mac Electron suite passed **15 GUI cases**, including eight-control layout, immediate saves, conflict/validation/retry, restart persistence, preview isolation, acknowledgement/skip, and synthetic login/disk failures without changing real login items.
@@ -50,7 +56,7 @@ Original scope: `.trellis/tasks/10-10-eyecare-product-design/prd.md`, R1–R16 a
 | AC12 / R4 | Fixed combined keyboard/mouse input and60-second activity window; native Windows/macOS/Linux input adapters | Actual physical keyboard/mouse activity and native permission cases |
 | AC13 / R8,R16 | Real-vs-preview, Escape and acknowledgement e2e/unit tests | Native multi-screen preview and suppression combinations |
 | AC14 / R16,R1 | Atomic prefs, fresh restart counters, deferred timer settings, hotplug coordinator; actual Windows install/upgrade/relaunch | Tray recovery, hotplug during overlays, foreground restoration; other target hosts |
-| AC15 / R11 | Shared snapshot tray/title/panel, immediate persisted toggle, e2e paused-counter preservation | Tray menu/panel activation, DPI and actual tray background changes; mac adjacent title |
+| AC15 / R11 | Shared snapshot tray/title/overview, immediate persisted toggle, e2e paused-counter preservation; actual packaged native menu-only probe | Physical tray menu activation, DPI and actual tray background changes; native Windows/Linux menu click |
 | AC16 / R13,R14 | Exact MASTER tokens, real dark/light mode, automatic persistence e2e | System-theme native changes and all overlay/tray surfaces |
 | AC17 / R13,R14 | Opaque/transparency and motion fallbacks, keyboard focus/scroll padding, minimum-width test | Composite contrast over real bright/dark/complex backgrounds, 100/125/150/200% scaling and large-font keyboard traversal |
 | AC18 / R15,R16 | Strict defaults asserted by unit tests and real first-run app | Installed first-run verification on each target host |

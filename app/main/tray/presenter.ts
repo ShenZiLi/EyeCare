@@ -1,15 +1,12 @@
-import { BrowserWindow, Menu, Tray, nativeImage, nativeTheme, screen } from 'electron';
+import { Menu, Tray, nativeImage, nativeTheme } from 'electron';
 import path from 'node:path';
 import { formatTime, statusLabels, type RuntimeSnapshot } from '../../shared/contracts';
-import { loadSurface, windowOptions } from '../windows';
 import { blankTrayIcon, numericTrayIcon, trayLabel } from './icon';
 
 export class TrayPresenter {
   private tray: Tray | null = null;
-  private panel: BrowserWindow | null = null;
   private iconKey = '';
   private menuKey = '';
-  private snapshot: RuntimeSnapshot | null = null;
   private standardIcon(dark: boolean): Electron.NativeImage {
     const image = nativeImage.createFromPath(path.join(__dirname, `../../resources/tray-eye-${dark && process.platform !== 'darwin' ? 'dark' : 'light'}.png`)).resize({ width: 32, height: 32 });
     if (process.platform === 'darwin') image.setTemplateImage(true);
@@ -20,15 +17,13 @@ export class TrayPresenter {
     try {
       const image = this.standardIcon(nativeTheme.shouldUseDarkColors);
       this.tray = new Tray(image.isEmpty() ? numericTrayIcon('-', nativeTheme.shouldUseDarkColors) : image);
-      this.tray.on('click', () => { void this.togglePanel(); });
-      this.tray.on('double-click', this.callbacks.showMain);
+      // macOS presents the registered context menu automatically on click.
+      if (process.platform !== 'darwin') this.tray.on('click', () => this.tray?.popUpContextMenu());
       return true;
     } catch { return false; }
   }
   get available(): boolean { return this.tray !== null; }
-  get window(): BrowserWindow | null { return this.panel; }
   update(snapshot: RuntimeSnapshot) {
-    this.snapshot = snapshot;
     if (!this.tray) return;
     const remaining = snapshot.remainingMs;
     const showing = snapshot.settings.appearance.showTrayCountdown;
@@ -58,23 +53,5 @@ export class TrayPresenter {
       this.menuKey = menuKey;
     }
   }
-  async togglePanel() {
-    if (!this.tray) return;
-    if (this.panel?.isVisible()) { this.panel.hide(); return; }
-    if (!this.panel || this.panel.isDestroyed()) {
-      this.panel = new BrowserWindow({ width: 340, height: 390, frame: false, resizable: false, show: false, skipTaskbar: true, alwaysOnTop: true, webPreferences: windowOptions() });
-      this.panel.on('blur', () => this.panel?.hide());
-      this.panel.on('closed', () => { this.panel = null; });
-      await loadSurface(this.panel, 'tray');
-    }
-    const bounds = this.tray.getBounds();
-    const work = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y }).workArea;
-    const x = Math.max(work.x, Math.min(bounds.x - 170, work.x + work.width - 340));
-    const y = bounds.y < work.y + work.height / 2 ? Math.max(work.y, bounds.y + bounds.height + 8) : work.y + work.height - 398;
-    this.panel.setPosition(Math.round(x), Math.round(y));
-    if (this.snapshot) this.panel.webContents.send('eyecare:snapshot-updated', this.snapshot);
-    this.panel.show();
-    this.panel.focus();
-  }
-  dispose() { this.panel?.destroy(); this.tray?.destroy(); this.tray = null; }
+  dispose() { this.tray?.destroy(); this.tray = null; }
 }
