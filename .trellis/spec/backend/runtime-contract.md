@@ -38,7 +38,7 @@ SettingsV2 has schemaVersion2 plus exactly these fields:
 | appearance.showTrayCountdown | boolean | true |
 | general.launchAtLogin | boolean | false |
 
-PRODUCT_DEFAULTS is readonly and central: combined input,60-second active window; fade600/hold800/fade600ms,opacity20%,theme-derived color; gentle sound/volume50;all screens,built-in message. resolveSettings copies core choices and resolves fixed parameters; ReminderEvent.settings uses ResolvedSettings. Fixed parameters never become editable/persisted V2 fields. System reductions come from platform observations only.
+PRODUCT_DEFAULTS is readonly and central: combined input,60-second active window; fade600/hold800/fade600ms,opacity90%,pure black (#000000) independent of theme; gentle sound/volume50;all screens,built-in message. resolveSettings copies core choices and resolves fixed parameters; ReminderEvent.settings uses ResolvedSettings. Fixed parameters never become editable/persisted V2 fields. System reductions come from platform observations only.
 
 RuntimeSnapshot.settings is V2. No snoozed status/snoozeRemainingMs/snooze action or preview outcome exists. Real/preview events have immutable ID/generation/options/target IDs; exactly one real reminder exists. Only valid real mask acknowledgement emits rest_confirmed once. Preview identities/results are separate and cannot modify real time/rest.
 
@@ -78,7 +78,7 @@ Tray interaction uses only the existing native context menu. macOS setContextMen
 
 ## 5. Good / Base / Bad cases
 
-Good: legacy mouse/custom-color/screen/snooze preferences migrate only eight choices; runtime uses combined/theme/all/fixed defaults. Base: flash+sound belongs to one event and settles once. Good: acknowledge on A closes A/B and rest increments once. Bad: removing only the button leaves a backend snooze branch. Bad: treating failed migration as a corrupt valid legacy file and discarding core choices. Bad: default-derived options are persisted as custom V2 fields.
+Good: legacy mouse/custom-color/screen/snooze preferences migrate only eight choices; runtime uses combined/black/all/fixed defaults. Base: flash+sound belongs to one event and settles once. Good: acknowledge on A closes A/B and rest increments once. Bad: removing only the button leaves a backend snooze branch. Bad: treating failed migration as a corrupt valid legacy file and discarding core choices. Bad: default-derived options are persisted as custom V2 fields.
 
 ## 6. Required assertions
 

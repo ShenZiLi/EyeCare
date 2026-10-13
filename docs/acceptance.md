@@ -2,6 +2,12 @@
 
 Original scope: `.trellis/tasks/10-10-eyecare-product-design/prd.md`, R1–R16 and AC1–AC22. User authorized implementation on 2026-10-10. A local implementation/build is not release-complete acceptance.
 
+## Deep flash continuation — 2026-10-13
+
+- User requested a very deep veil. Fixed flash defaults now use90% opacity/pure black in both themes, superseding earlier20/40% theme-derived builds. Renderer consumes immutable event color;600/800/600ms timing,nonfocusable/click-through,automatic completion and preview isolation remain.
+- Typecheck/lint and185 unit/integration cases passed. Actual rebuilt ARM package previews in both light/dark measured rgb(0,0,0),0.9 peak opacity and2000ms animation duration; windows were nonfocusable and ignored mouse events. Both automatically cleared every overlay without rest confirmation/timer reset. Peak was sampled by temporarily moving animation time; observed total elapsed includes window loading. Current OS reduced-motion=false; the unchanged static branch was reviewed separately. Evidence: deep-flash-evidence.json.
+- Final user application was restarted and the new flash preview started through its native UI. No preference or OS login changes were made by verification. Latest ZIP SHA256: `5f3d9bad1adcdec9ab3f4fcc35f669a938cf764569a5dffdfef7e59ba81901b9` (version1.0.2); earlier hashes below identify previous builds.
+
 ## Tray menu continuation — 2026-10-13
 
 - User requested tray clicks show only the existing native menu. Removed custom panel creation/lifecycle and its IPC sender role. macOS relies on its registered native menu; other platforms left-click opens that same menu. Countdown and menu callbacks remain main-owned.

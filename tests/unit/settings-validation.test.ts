@@ -34,7 +34,7 @@ describe('SettingsV2 strict trust boundary', () => {
   it('resolves fixed defaults into independent creation-time options without persisting them', () => {
     const settings = defaultSettings(); const resolved = resolveSettings(settings);
     expect(resolved.timer).toMatchObject({ activitySource: 'combined', activeWindowSeconds: 60 });
-    expect(resolved.reminder).toMatchObject({ soundId: 'gentle', volumePercent: 50, fadeInMs: 600, holdMs: 800, fadeOutMs: 600, flashOpacityPercent: 40, flashColor: 'theme-derived', screenScope: 'all', screenIds: [], message: PRODUCT_DEFAULTS.message });
+    expect(resolved.reminder).toMatchObject({ soundId: 'gentle', volumePercent: 50, fadeInMs: 600, holdMs: 800, fadeOutMs: 600, flashOpacityPercent: 90, flashColor: '#000000', screenScope: 'all', screenIds: [], message: PRODUCT_DEFAULTS.message });
     expect(resolved.reminder).not.toHaveProperty('snoozeMinutes');
     resolved.reminder.screenIds.push('display'); resolved.timer.intervalMinutes = 1;
     expect(resolveSettings(settings).reminder.screenIds).toEqual([]); expect(settings.timer.intervalMinutes).toBe(30);

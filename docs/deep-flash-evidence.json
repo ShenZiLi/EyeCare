@@ -1,0 +1,58 @@
+{
+  "verifiedOn": "2026-10-13 Asia/Shanghai",
+  "recordedAt": "2026-10-13T06:21:18.656685+00:00",
+  "platform": "darwin",
+  "arch": "arm64",
+  "packaged": true,
+  "version": "1.0.2",
+  "complete": true,
+  "results": [
+    {
+      "theme": "light",
+      "color": "rgb(0, 0, 0)",
+      "opacity": 0.9,
+      "defaults": {
+        "color": "#000000",
+        "opacity": 90,
+        "fadeIn": 600,
+        "hold": 800,
+        "fadeOut": 600
+      },
+      "duration": 2000,
+      "reducedMotion": false,
+      "focusable": false,
+      "ignoreMouse": true,
+      "automaticallyEnded": true,
+      "previewIsolated": true,
+      "elapsedMs": 3151
+    },
+    {
+      "theme": "dark",
+      "color": "rgb(0, 0, 0)",
+      "opacity": 0.9,
+      "defaults": {
+        "color": "#000000",
+        "opacity": 90,
+        "fadeIn": 600,
+        "hold": 800,
+        "fadeOut": 600
+      },
+      "duration": 2000,
+      "reducedMotion": false,
+      "focusable": false,
+      "ignoreMouse": true,
+      "automaticallyEnded": true,
+      "previewIsolated": true,
+      "elapsedMs": 2978
+    }
+  ],
+  "loginUnchanged": true,
+  "fixturesRemoved": true,
+  "unitIntegrationCases": 185,
+  "zipSha256": "5f3d9bad1adcdec9ab3f4fcc35f669a938cf764569a5dffdfef7e59ba81901b9",
+  "method": "Actual isolated packaged Electron process; sampled animation at1000ms peak then resumed. Computed renderer color/opacity and native window flags checked. elapsedMs includes window startup,not only animation. Final user app restarted and preview played and automatically ended through native UI.",
+  "limits": [
+    "Reduced-motion branch reviewed; runtime measurements used current OS preference reducedMotion=false",
+    "Physical display composition and other native hosts remain existing acceptance"
+  ]
+}
