@@ -138,3 +138,39 @@ Removed custom tray panel and sender role, keeping native menu callbacks and cou
 ### Next Steps
 
 - Keep original task active for physical pointer-click and native Windows/Linux acceptance plus existing cross-platform physical/signing/long-run release checks.
+
+
+## Session 5: Deep black flash veil
+<!-- trellis-session: v=2 fp=eaef4ac54c65481c -->
+
+**Date**: 2026-10-13
+**Task**: Deep black flash veil
+**Branch**: `dev`
+
+### Summary
+
+Deepened automatic flash to90% pure black in both themes, consumed immutable event color and verified final Mac package/preview.
+
+### Main Changes
+
+- Replaced40% theme-derived flash with90% #000000, removed independent theme flash color tokens and synchronized current contracts/design/README.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `534e548` | feat: deepen flash reminders with a black veil |
+
+### Testing
+
+- [OK] Typecheck/lint and185 unit/integration cases passed; scoped code review found no defects.
+- [OK] Actual packaged Mac light/dark previews measured black at0.9 peak with2000ms animation, nonfocusable/click-through flags and automatic cleanup without rest or timer reset. Isolated profile removed; OS login unchanged.
+- [OK] Final user app restarted; new preview played and automatically ended through native UI.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Preserve existing physical/cross-platform/signing/long-run acceptance; keep overall task active, no push.
