@@ -65,3 +65,41 @@ Removed manual save/discard controls on trigger/reminder pages. Serialized valid
 ### Next Steps
 
 - Full cross-platform physical/signing acceptance remains pending. Overall delivery task remains in_progress.
+
+
+## Session 3: Eight autosaved settings and snooze removal
+<!-- trellis-session: v=2 fp=a43cc9fdf61dd1bf -->
+
+**Date**: 2026-10-13
+**Task**: Eight autosaved settings and snooze removal
+**Branch**: `dev`
+
+### Summary
+
+Delivered SettingsV2 with eight autosaved choices, fixed defaults, strict original-byte legacy migration and complete runtime snooze removal. Verified final Mac GUI, native cycle and packaged migration/retry; preserved full cross-platform acceptance.
+
+### Main Changes
+
+- Simplified Trigger/Reminder/General pages to 3+2+3 controls; only-sound pairing, single preview, confirmed automatic restore, concise overview and anomaly-only capability explanations.
+- Removed snooze state, action, timer branch and overlays; acknowledgement confirms once and resets normal timing, skip and preview remain isolated.
+- Captured actual OS startup state before save mutations, restoring exact platform state after failure; documented preference/OS divergence regression and native Windows/Linux verification limits.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `98a144c` | feat: simplify settings and remove deferred reminders |
+
+### Testing
+
+- [OK] TypeScript and ESLint plus185 unit/integration cases passed; final real Mac Electron suite15 cases passed.
+- [OK] Mac ARM .app and ZIP rebuilt; actual packaged V1 core migration/original backup/failure retry/autosave/restart/real mask cleanup passed; native V2 one-minute hidden-main/tray/flash/mask run passed.
+- [OK] Opened final production Mac app and inspected all three pages without changing preferences; left app running on Overview. Existing Windows evidence and user .idea files preserved.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Keep delivery task in_progress for native cross-platform physical lock/sleep/multiple displays, Windows/Linux startup rollback, Intel/additional macOS, signing/notarization and sustained performance acceptance; no push or release.
