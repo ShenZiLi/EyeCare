@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 1
-- **Last Active**: 2026-10-12
+- **Total Sessions**: 2
+- **Last Active**: 2026-10-13
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~37 | Active |
+| `journal-1.md` | ~67 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 2 | 2026-10-13 | Immediate trigger and reminder settings | `6aee3df` | `dev` |
 | 1 | 2026-10-12 | Verified macOS native runtime and packaging | `f9dca62` | `dev` |
 <!-- @@@/auto:session-history -->
 

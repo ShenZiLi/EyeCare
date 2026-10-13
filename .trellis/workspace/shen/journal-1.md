@@ -35,3 +35,33 @@ Repaired Mac native startup, current-session lock and input safety; built and la
 ### Next Steps
 
 - Physical lock/sleep, input-device separation, multi-display/Spaces, login execution, Intel/additional macOS hosts, distribution signing/notifications and sustained stability remain pending; keep task in_progress.
+
+
+## Session 2: Immediate trigger and reminder settings
+<!-- trellis-session: v=2 fp=13c127adee6426b0 -->
+
+**Date**: 2026-10-13
+**Task**: Immediate trigger and reminder settings
+**Branch**: `dev`
+
+### Summary
+
+Removed manual save/discard controls on trigger/reminder pages. Serialized validated field autosaves preserve rapid, failed and invalid edits; General manual settings retained. Latest Mac app built, launched and inspected.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6aee3df` | feat: apply trigger and reminder settings automatically |
+
+### Testing
+
+- [OK] Typecheck, ESLint,162 unit/integration cases,11 final actual Electron GUI cases and exact packaged settings/disk persistence passed. Eight instrumented CN input repeats passed; failure diagnostics retained.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Full cross-platform physical/signing acceptance remains pending. Overall delivery task remains in_progress.
