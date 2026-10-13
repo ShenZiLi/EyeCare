@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 5
+- **Total Sessions**: 6
 - **Last Active**: 2026-10-13
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~176 | Active |
+| `journal-1.md` | ~198 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 6 | 2026-10-13 | Compact pages and manual pause | `eaf6243` | `dev` |
 | 5 | 2026-10-13 | Deep black flash veil | `534e548` | `dev` |
 | 4 | 2026-10-13 | Native tray menu only | `04d093d` | `dev` |
 | 3 | 2026-10-13 | Eight autosaved settings and snooze removal | `98a144c` | `dev` |

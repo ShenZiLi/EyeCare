@@ -174,3 +174,25 @@ Deepened automatic flash to90% pure black in both themes, consumed immutable eve
 ### Next Steps
 
 - Preserve existing physical/cross-platform/signing/long-run acceptance; keep overall task active, no push.
+
+
+## Session 6: Compact pages and manual pause
+<!-- trellis-session: v=2 fp=edb776215ea510ed -->
+
+**Date**: 2026-10-13
+**Task**: Compact pages and manual pause
+**Branch**: `dev`
+
+### Summary
+
+Delivered compact four-page UI, interval presets/custom autosave, manual-only pause, and removed overview rules/sampling-gap banner. Final focused46 backend tests and3 Electron cases passed; Mac rebuilt and restarted. User asked to stop further verification. Overall native release acceptance remains open; .idea left untouched.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `eaf6243` | feat: compact pages and simplify reminder controls |
+
+### Status
+
+[OK] **Completed**
