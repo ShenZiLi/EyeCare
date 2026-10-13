@@ -17,7 +17,7 @@ export function identity(value: unknown): { id: string; generation: number } {
   return { id: fields.id, generation: fields.generation as number };
 }
 export function reminderAction(value: unknown): ReminderAction {
-  if (value !== 'acknowledge' && value !== 'skip' && value !== 'snooze') throw new CommandError({ code: 'INVALID_COMMAND', message: '未知的提醒操作' });
+  if (value !== 'acknowledge' && value !== 'skip') throw new CommandError({ code: 'INVALID_COMMAND', message: '未知的提醒操作' });
   return value;
 }
 export function channelResults(value: unknown): ChannelResult[] {

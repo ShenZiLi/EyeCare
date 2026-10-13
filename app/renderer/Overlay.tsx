@@ -3,7 +3,6 @@ import { Eye, X } from 'lucide-react';
 import type { ChannelResult, OverlayState, ReminderAction } from '../shared/contracts';
 import { applyAppearance, Icon } from './components';
 import gentle from './assets/gentle.wav?url';
-import bell from './assets/bell.wav?url';
 
 export function Overlay() {
   const [state, setState] = useState<OverlayState | null>(null);
@@ -55,7 +54,7 @@ function OverlayEvent({ state }: { state: OverlayState }) {
     let audioReported = false;
     const report = (result: ChannelResult) => { if (alive) void window.eyeCare.overlayFinished(event.id, event.generation, [result]).catch(() => { /* Main-process cancellation or teardown can race completion. */ }); };
     if (settings.soundEnabled) {
-      audio = new Audio(settings.soundId === 'bell' ? bell : gentle);
+      audio = new Audio(gentle);
       audio.volume = settings.volumePercent / 100;
       audio.loop = false;
       const finishSound = (success: boolean, message: string) => { if (audioReported) return; audioReported = true; report({ channel: 'sound', success, message }); };
@@ -76,7 +75,7 @@ function OverlayEvent({ state }: { state: OverlayState }) {
     return () => { alive = false; if (timeout) clearTimeout(timeout); animation?.cancel(); if (audio) { audio.pause(); audio.onended = null; audio.onerror = null; audio.removeAttribute('src'); audio.load(); } };
     // A reminder consumes its creation-time parameters. Later appearance updates do not restart sound or the visual cycle.
   }, [event.id, event.generation]);
-  if (settings.visual === 'flash') return <div ref={flash} className="flash-overlay" style={settings.flashColor !== 'theme-derived' ? { backgroundColor: settings.flashColor } : undefined} aria-hidden="true"/>;
+  if (settings.visual === 'flash') return <div ref={flash} className="flash-overlay" aria-hidden="true"/>;
   if (!mask) return null;
-  return <div className="rest-backdrop"><div className="rest-panel" ref={panel} role="dialog" aria-modal="true" aria-labelledby="rest-title" aria-describedby="rest-description"><button className="rest-skip icon-button" aria-label="跳过本次提醒" disabled={busy} onClick={() => void resolve('skip')}><Icon icon={X}/></button><span className="rest-icon"><Icon icon={Eye} size={36}/></span><span className="eyebrow">{event.kind === 'preview' ? '提醒效果预览' : '给视线一点休息'}</span><h1 id="rest-title">{settings.message}</h1><p id="rest-description">{event.kind === 'preview' ? '这是一次预览，所有操作只会关闭预览。' : '把目光从屏幕移开，看看远处。准备好后，点击“知道了”。'}</p>{error && <p className="field-error" role="alert">{error}</p>}<div className="rest-actions"><button className="primary" disabled={busy} onClick={() => void resolve('acknowledge')}>知道了</button><button disabled={busy} onClick={() => void resolve('snooze')}>{settings.snoozeMinutes} 分钟后提醒</button></div><span className="hint">按 Escape 跳过{event.kind === 'real' ? ' · 跳过不会记为完成休息' : ''}</span></div></div>;
+  return <div className="rest-backdrop"><div className="rest-panel" ref={panel} role="dialog" aria-modal="true" aria-labelledby="rest-title" aria-describedby="rest-description"><button className="rest-skip icon-button" aria-label="跳过本次提醒" disabled={busy} onClick={() => void resolve('skip')}><Icon icon={X}/></button><span className="rest-icon"><Icon icon={Eye} size={36}/></span><span className="eyebrow">{event.kind === 'preview' ? '提醒效果预览' : '给视线一点休息'}</span><h1 id="rest-title">{settings.message}</h1><p id="rest-description">{event.kind === 'preview' ? '这是一次预览，所有操作只会关闭预览。' : '把目光从屏幕移开，看看远处。准备好后，点击“知道了”。'}</p>{error && <p className="field-error" role="alert">{error}</p>}<div className="rest-actions"><button className="primary" disabled={busy} onClick={() => void resolve('acknowledge')}>知道了</button></div><span className="hint">按 Escape 跳过{event.kind === 'real' ? ' · 跳过不会记为完成休息' : ''}</span></div></div>;
 }

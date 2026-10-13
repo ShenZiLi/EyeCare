@@ -1,6 +1,16 @@
 # Platform evidence
 
-Windows evidence recorded 2026-10-10; macOS evidence added 2026-10-12. Interface availability and automated assertions are separate from native acceptance. Linux remains unavailable for native acceptance.
+Windows evidence recorded 2026-10-10; macOS evidence added 2026-10-12 and updated2026-10-13. Interface availability and automated assertions are separate from native acceptance. Linux remains unavailable for native acceptance.
+
+## V2 continuation — 2026-10-13
+
+Final local check passed185 unit/integration cases and15 actual Mac Electron GUI cases. The V2 native runtime record proves one configured minute with the main window hidden, advancing menu-bar countdown, a no-reset countdown toggle, flash automatic completion and one mask confirmation with all overlays cleaned. `macos-runtime-evidence.json` now contains these V2 observations (approximately66.9 seconds), replacing its earlier V1 run.
+
+The rebuilt ARM64 production executable passed isolated V1-to-V2 migration, original-byte/no-overwrite backup, fixed-default resolution, old-snooze rejection, real confirmation/reset, core UI autosave and restart persistence. A blocked migration-backup fixture preserved the source, warned and recovered after save/restart. `simplified-settings-evidence.json` records both runs. Temporary profiles were removed and actual OS login-item readings remained unchanged. ZIP SHA256: `5501f6421899f830966413dfd4fe8a8b314fe474298d3dedf9edc67d3fc9d083`; package version remains1.0.2. Earlier package hashes below identify historical artifacts.
+
+Startup save now captures actual OS state before applying a change, so preference/OS divergence cannot restore the wrong value. Capture failures prevent mutation; apply or disk failure restores the captured state. Windows snapshots only the exact owned Run and StartupApproved entries (value presence/kind/unexpanded data/approval bytes) through bounded fixed PowerShell; Linux snapshots exact owned desktop-entry bytes/mode/absence and restores atomically. Injected tests cover these paths; native Windows/Linux rollback and reboot/logon remain unverified. Real Mac GUI failure tests replace only Electron login methods and do not change actual system registration.
+
+V2 uses combined keyboard/mouse activity on every platform. Mouse-specific adapter diagnostics remain internal legacy capabilities; no mouse-only selection is exposed or required for V2 configuration.
 
 ## Implemented adapters
 

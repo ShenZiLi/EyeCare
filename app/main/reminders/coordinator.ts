@@ -71,8 +71,7 @@ export class ReminderCoordinator {
   }
   private async createVisualWindows(session: Session) {
     const all = screen.getAllDisplays();
-    const options = session.event.settings.reminder;
-    let targets = all.filter(display => options.screenScope === 'all' || (options.screenScope === 'primary' ? display.id === screen.getPrimaryDisplay().id : session.event.screenIds.includes(String(display.id))));
+    let targets = all;
     if (!targets.length) targets = [screen.getPrimaryDisplay()];
     for (const display of targets) {
       if (session.cancelled || this.session !== session) break;
@@ -229,7 +228,7 @@ export class ReminderCoordinator {
     session.creating = true;
     const options = session.event.settings.reminder;
     const all = screen.getAllDisplays();
-    let targets = all.filter(display => options.screenScope === 'all' || (options.screenScope === 'primary' ? display.id === screen.getPrimaryDisplay().id : session.event.screenIds.includes(String(display.id))));
+    let targets = all;
     if (!targets.length) targets = [screen.getPrimaryDisplay()];
     for (const [id, item] of session.windows) {
       const display = targets.find(target => target.id === item.displayId);

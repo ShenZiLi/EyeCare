@@ -3,7 +3,7 @@ import type { Capabilities, Capability, PlatformSample } from '../../shared/cont
 import { createLinuxProvider, createMacProvider, createWindowsProvider, type LockState, type NativeProvider } from './native';
 import { LinuxLockReader } from './linux-lock';
 
-export { setLaunchAtLogin, migrateWindowsLaunchAtLogin } from './autostart';
+export { setLaunchAtLogin, prepareLoginChange, migrateWindowsLaunchAtLogin } from './autostart';
 
 const status = (state: Capability['state'], reason: string): Capability => ({ state, reason });
 export class PlatformAdapter {

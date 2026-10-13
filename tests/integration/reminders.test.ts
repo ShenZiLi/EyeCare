@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
-import { defaultSettings, type OverlayState, type ReminderEvent, type RuntimeSnapshot } from '../../app/shared/contracts';
+import { defaultSettings, resolveSettings, type OverlayState, type ReminderEvent, type RuntimeSnapshot } from '../../app/shared/contracts';
 const fake = vi.hoisted(() => ({ windows: [] as unknown[], notices: [] as unknown[], nextId: 1, loader: null as null | (() => Promise<void>), displays: [{ id: 1, bounds: { x: 0, y: 0, width: 1920, height: 1080 } }, { id: 2, bounds: { x: 1920, y: 0, width: 1280, height: 720 } }] }));
 vi.mock('electron', async () => {
   const { EventEmitter } = await import('node:events');
@@ -21,9 +21,9 @@ import { ReminderCoordinator } from '../../app/main/reminders/coordinator';
 
 function snapshot(): RuntimeSnapshot {
   const available = { state: 'available' as const, reason: '' };
-  return { settings: defaultSettings(), settingsRevision: 0, sequence: 1, status: 'reminding', statusReason: '', elapsedActiveMs: 0, remainingMs: 0, pauseRemainingMs: null, snoozeRemainingMs: null, currentReminderId: 'real-1', currentPreviewId: null, latestPreviewResult: null, theme: 'light', reduceMotion: false, reduceTransparency: false, capabilities: { input: available, mouse: available, lock: available, overlay: available, notification: available, tray: available, launchAtLogin: available }, displays: [], latestReminderResult: null, restConfirmedCount: 0, warnings: [] };
+  return { settings: defaultSettings(), settingsRevision: 0, sequence: 1, status: 'reminding', statusReason: '', elapsedActiveMs: 0, remainingMs: 0, pauseRemainingMs: null, currentReminderId: 'real-1', currentPreviewId: null, latestPreviewResult: null, theme: 'light', reduceMotion: false, reduceTransparency: false, capabilities: { input: available, mouse: available, lock: available, overlay: available, notification: available, tray: available, launchAtLogin: available }, displays: [], latestReminderResult: null, restConfirmedCount: 0, warnings: [] };
 }
-const reminder = (visual: 'flash' | 'mask' | 'none' | 'notification' = 'flash', kind: 'real' | 'preview' = 'real'): ReminderEvent => { const settings = defaultSettings(); settings.reminder.visual = visual; settings.reminder.soundEnabled = true; return { id: 'real-1', generation: 1, kind, settings, screenIds: ['1', '2'], createdAtMs: 0 }; };
+const reminder = (visual: 'flash' | 'mask' | 'none' | 'notification' = 'flash', kind: 'real' | 'preview' = 'real'): ReminderEvent => { const settings = defaultSettings(); settings.reminder.visual = visual; settings.reminder.soundEnabled = true; return { id: 'real-1', generation: 1, kind, settings: resolveSettings(settings), screenIds: ['1', '2'], createdAtMs: 0 }; };
 const overlays = (coordinator: ReminderCoordinator): { id: number; state: OverlayState }[] => (fake.windows as { webContents: { id: number } }[]).map(window => ({ id: window.webContents.id, state: coordinator.getOverlay(window.webContents.id)! }));
 
 describe('multi-screen reminder lifecycle', () => {
@@ -169,7 +169,7 @@ describe('multi-screen reminder lifecycle', () => {
     expect(changed).toHaveBeenLastCalledWith(null, expect.objectContaining({ id: event.id, outcome: 'automatic' }));
     expect(finished).not.toHaveBeenCalled();
   });
-  it.each(['acknowledge', 'skip', 'snooze'] as const)('publishes preview %s terminal state without rest or real settlement', async action => {
+  it.each(['acknowledge', 'skip'] as const)('publishes preview %s terminal state without rest or real settlement', async action => {
     const changed = vi.fn(); const finished = vi.fn(); const coordinator = new ReminderCoordinator(snapshot, () => true, finished, vi.fn(), changed);
     const event = reminder('mask', 'preview'); await coordinator.present(event);
     expect(coordinator.resolvePreview(event.id, event.generation, action)).toBe(true);

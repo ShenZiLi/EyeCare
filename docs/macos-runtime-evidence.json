@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-10-12T08:36:55.027Z",
+  "recordedAt": "2026-10-13T02:31:09.796Z",
   "platform": "darwin",
   "arch": "arm64",
   "osRelease": "25.4.0",
@@ -7,72 +7,72 @@
   "inputClock": "CoreGraphics session event idle",
   "observations": [
     {
-      "nowMs": 1581455817.2540417,
-      "combinedIdleMs": 633.343375,
+      "nowMs": 1645910116.5910418,
+      "combinedIdleMs": 81.48325,
       "sequence": 7,
       "status": "counting",
-      "remainingMs": 59966.132291555405,
+      "remainingMs": 59965.10358333588,
       "overlayCount": 0
     },
     {
-      "nowMs": 1581465973.2262082,
-      "combinedIdleMs": 3.439417,
+      "nowMs": 1645920282.2832918,
+      "combinedIdleMs": 79.48533400000001,
       "sequence": 17,
       "status": "counting",
-      "remainingMs": 50340.44520831108,
+      "remainingMs": 50292.77125000954,
       "overlayCount": 0
     },
     {
-      "nowMs": 1581476137.3814168,
-      "combinedIdleMs": 876.130458,
+      "nowMs": 1645930446.3475833,
+      "combinedIdleMs": 6.596667,
       "sequence": 27,
       "status": "counting",
-      "remainingMs": 40303.36679148674,
+      "remainingMs": 40254.0110001564,
       "overlayCount": 0
     },
     {
-      "nowMs": 1581486286.97475,
-      "combinedIdleMs": 0.70025,
+      "nowMs": 1645940633.540375,
+      "combinedIdleMs": 218.756666,
       "sequence": 37,
       "status": "counting",
-      "remainingMs": 30286.110041618347,
+      "remainingMs": 30230.88866686821,
       "overlayCount": 0
     },
     {
-      "nowMs": 1581496451.8323333,
-      "combinedIdleMs": 16.712625,
+      "nowMs": 1645950789.1373332,
+      "combinedIdleMs": 2.094166,
       "sequence": 47,
       "status": "counting",
-      "remainingMs": 20260.886000156403,
+      "remainingMs": 20196.765000104904,
       "overlayCount": 0
     },
     {
-      "nowMs": 1581506647.6299582,
-      "combinedIdleMs": 14.735708,
+      "nowMs": 1645960961.2615,
+      "combinedIdleMs": 416.443625,
       "sequence": 58,
       "status": "counting",
-      "remainingMs": 9222.680999994278,
+      "remainingMs": 9163.303708314896,
       "overlayCount": 0
     },
     {
-      "nowMs": 1581516657.337,
-      "combinedIdleMs": 150.239125,
-      "sequence": 70,
+      "nowMs": 1645971130.2485833,
+      "combinedIdleMs": 15.274458,
+      "sequence": 72,
       "status": "reminding",
-      "remainingMs": 59174.33437514305,
-      "overlayCount": 0
+      "remainingMs": 59013.37554168701,
+      "overlayCount": 1
     }
   ],
   "reminders": [
     {
-      "id": "7fc4c35e-2b6f-4141-9a16-5e705fa56f49",
-      "createdAtMs": 1581516548.8908331,
+      "id": "a10725fa-081d-4d34-ac29-44b820128aec",
+      "createdAtMs": 1645970906.8709583,
       "mainHidden": true
     }
   ],
   "results": [
     {
-      "id": "7fc4c35e-2b6f-4141-9a16-5e705fa56f49",
+      "id": "a10725fa-081d-4d34-ac29-44b820128aec",
       "outcome": "automatic",
       "channels": [
         {
@@ -150,41 +150,26 @@
     "isolatedUserData": true
   },
   "configuration": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "timer": {
       "mode": "fixed",
       "intervalMinutes": 1,
-      "activitySource": "combined",
-      "activeWindowSeconds": 60,
       "longIdleMinutes": 120
     },
     "reminder": {
       "visual": "flash",
-      "soundEnabled": false,
-      "soundId": "gentle",
-      "volumePercent": 50,
-      "flashOpacityPercent": 20,
-      "flashColor": "theme-derived",
-      "fadeInMs": 600,
-      "holdMs": 800,
-      "fadeOutMs": 600,
-      "snoozeMinutes": 5,
-      "screenScope": "primary",
-      "screenIds": [],
-      "message": "该让眼睛休息一下了"
+      "soundEnabled": false
     },
     "appearance": {
       "theme": "system",
-      "showTrayCountdown": true,
-      "reduceMotion": "system",
-      "reduceTransparency": "system"
+      "showTrayCountdown": true
     },
     "general": {
       "launchAtLogin": false
     }
   },
-  "startBeforeMs": 1581455737.7947917,
-  "startAfterMs": 1581455754.543625,
+  "startBeforeMs": 1645910035.0547082,
+  "startAfterMs": 1645910057.982,
   "tray": {
     "template": true,
     "countdownAdvanced": true,
@@ -193,7 +178,7 @@
   "mask": {
     "restConfirmedCount": 1,
     "result": {
-      "id": "a995ac42-6685-4ab2-b96f-418193af77be",
+      "id": "be2bbc1d-b65a-46c0-9622-efbc223c137e",
       "outcome": "acknowledge",
       "channels": [
         {
@@ -203,8 +188,8 @@
         }
       ]
     },
-    "remainingMs": 60000
+    "remainingMs": 59983.75304174423
   },
-  "durationMs": 68297.93616652489,
+  "durationMs": 66874.70912480354,
   "fixturesRemoved": true
 }

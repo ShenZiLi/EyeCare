@@ -30,10 +30,10 @@ export class TrayPresenter {
   update(snapshot: RuntimeSnapshot) {
     this.snapshot = snapshot;
     if (!this.tray) return;
-    const remaining = snapshot.status === 'snoozed' ? snapshot.snoozeRemainingMs : snapshot.remainingMs;
+    const remaining = snapshot.remainingMs;
     const showing = snapshot.settings.appearance.showTrayCountdown;
     const state = statusLabels[snapshot.status];
-    const counting = ['counting', 'short_idle', 'snoozed'].includes(snapshot.status);
+    const counting = ['counting', 'short_idle'].includes(snapshot.status);
     const text = snapshot.status === 'paused' ? 'P' : counting ? trayLabel(remaining) : snapshot.status === 'capability_error' ? '!' : '-';
     const dark = nativeTheme.shouldUseDarkColors;
     const key = `${showing ? text : 'eye'}:${dark}`;

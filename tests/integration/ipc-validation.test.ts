@@ -15,6 +15,8 @@ describe('renderer command boundary', () => {
     for (const invalid of [NaN, Infinity, -1, 0.5, '1']) expect(() => identity({ id: 'x', generation: invalid })).toThrow();
     expect(() => identity({ id: 'x'.repeat(101), generation: 0 })).toThrow();
     expect(() => reminderAction('restart')).toThrow();
+    try { reminderAction('snooze'); throw new Error('obsolete command accepted'); } catch (error) { expect(error).toMatchObject({ detail: { code: 'INVALID_COMMAND' } }); }
+    expect(reminderAction('acknowledge')).toBe('acknowledge'); expect(reminderAction('skip')).toBe('skip');
   });
   it('validates playback reports without accepting renderer-defined channels', () => {
     expect(channelResults([{ channel: 'sound', success: false, message: '设备不可用' }])).toEqual([{ channel: 'sound', success: false, message: '设备不可用' }]);

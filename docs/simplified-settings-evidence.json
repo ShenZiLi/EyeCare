@@ -1,0 +1,30 @@
+{
+  "verifiedOn": "2026-10-13 Asia/Shanghai",
+  "recordedAt": "2026-10-13T02:45:34.727Z",
+  "platform": "darwin",
+  "arch": "arm64",
+  "complete": true,
+  "normal": {
+    "packaged": true,
+    "version": "1.0.2",
+    "electron": "44.7.0",
+    "migratedCorePreserved": true,
+    "removedDefaultsResolved": true,
+    "backupOriginalBytes": true,
+    "backupUnchangedAfterRestart": true,
+    "oldSnoozeRejected": true,
+    "acknowledgedOnce": true,
+    "overlaysRemoved": true,
+    "coreAutosavePersisted": true,
+    "loginItemsUnchanged": true
+  },
+  "failureRecovery": {
+    "inMemoryV2": true,
+    "sourcePreservedBeforeRetry": true,
+    "warningVisible": true,
+    "saveRetriesUpgrade": true,
+    "originalBackupAfterRetry": true,
+    "restartHealthy": true
+  },
+  "fixturesRemoved": true
+}

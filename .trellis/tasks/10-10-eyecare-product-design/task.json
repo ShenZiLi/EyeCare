@@ -29,25 +29,30 @@
     ".trellis/spec/backend/runtime-contract.md",
     ".trellis/spec/frontend/ui-contract.md",
     ".trellis/tasks/10-10-eyecare-product-design/research/macos-native-implementation.md",
-    ".trellis/tasks/10-10-eyecare-product-design/research/instant-settings.md"
+    ".trellis/tasks/10-10-eyecare-product-design/research/instant-settings.md",
+    ".trellis/tasks/10-10-eyecare-product-design/research/simplified-settings.md"
   ],
-  "notes": "Local-first delivery1.0.2 built and installed/upgraded on Windows11. Persistent startup paths and legacy migration preserve system-disabled choice;125 pure tests and12 Electron tests pass. Earlier1.0.1 native two-cycle/hidden-main evidence retained. Authorized local delivery complete; full native cross-platform/signing/physical/long-run acceptance awaits resources in docs/acceptance.md. Task remains in_progress. macOS26.4 ARM64 continuation: native startup/lock/input safety repaired;151 pure tests,9 Mac GUI tests, actual one-minute hidden-main/tray/flash/mask runtime and packaged startup pass. ARM .app/ZIP built; physical/Intel/signing acceptance remains open. 2026-10-13 trigger/reminder automatic save delivered:162 unit/integration and11 MacGUI cases, exact packaged settings/disk persistence pass; General manual fields preserved. Existing full release acceptance remains open.",
+  "notes": "Local-first delivery1.0.2 built and installed/upgraded on Windows11. Persistent startup paths and legacy migration preserve system-disabled choice;125 pure tests and12 Electron tests pass. Earlier1.0.1 native two-cycle/hidden-main evidence retained. Authorized local delivery complete; full native cross-platform/signing/physical/long-run acceptance awaits resources in docs/acceptance.md. Task remains in_progress. macOS26.4 ARM64 continuation: native startup/lock/input safety repaired;151 pure tests,9 Mac GUI tests, actual one-minute hidden-main/tray/flash/mask runtime and packaged startup pass. ARM .app/ZIP built; physical/Intel/signing acceptance remains open. 2026-10-13 trigger/reminder automatic save delivered:162 unit/integration and11 MacGUI cases, exact packaged settings/disk persistence pass; General manual fields preserved. Existing full release acceptance remains open. User explicitly authorized simplified eight-setting V2 implementation and complete snooze removal on2026-10-13. V2 continuation verified2026-10-13: eight autosaved settings, complete runtime snooze removal, original-byte V1 backup/atomic upgrade/retry, actual-OS login rollback.185 pure/integration cases and15 final MacGUI cases pass; rebuilt Mac .app migration/failure-retry/save/restart/confirmation and native V2 minute cycle pass. Existing full release/physical acceptance stays open.",
   "meta": {
     "design_complete": true,
     "implementation_authorized": true,
     "stop_before_implementation": false,
     "local_delivery_verified": true,
-    "unit_integration_tests_passed": 162,
+    "unit_integration_tests_passed": 185,
     "real_electron_tests_passed": 12,
     "release_acceptance_complete": false,
     "local_delivery_version": "1.0.2",
     "native_windows_two_cycle_check_passed": true,
     "native_windows_two_cycle_check_version": "1.0.1",
-    "macos_real_electron_tests_passed": 11,
+    "macos_real_electron_tests_passed": 15,
     "native_macos_cycle_check_passed": true,
     "macos_packaged_startup_passed": true,
     "macos_local_delivery_verified": true,
     "macos_host": "26.4 arm64",
-    "instant_trigger_reminder_settings_verified": true
+    "instant_trigger_reminder_settings_verified": true,
+    "simplified_settings_authorized": true,
+    "simplified_settings_verified": true,
+    "simplified_settings_packaged_verified": true,
+    "settings_schema_version": 2
   }
 }

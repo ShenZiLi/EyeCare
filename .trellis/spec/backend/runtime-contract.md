@@ -1,146 +1,108 @@
 # EyeCare Runtime Contract
 
-Status: implemented locally under `app/main` and `app/shared/contracts.ts` after user authorization on 2026-10-10. Source of product behavior: `.trellis/tasks/10-10-eyecare-product-design/prd.md`; architecture: `.trellis/tasks/10-10-eyecare-product-design/design.md`. Native release acceptance remains tracked in `docs/acceptance.md`; interface availability is not proof of platform support.
+Current contract: user-approved SettingsV2 simplification,2026-10-13. Product requirements: active task prd.md; native/release evidence: docs/acceptance.md. Local framework tests do not prove physical platform support.
 
 ## 1. Scope / Trigger
 
-This contract governs the future main-process timer, platform observations, settings persistence, and renderer boundary. It prevents duplicate reminders, stale multi-screen acknowledgements, divergent countdowns, and reminders on a locked screen.
+Main owns timer, native observations, persistence, OS startup and reminder identity. Renderer owns only input/display. Eight core choices are persisted; advanced effects are fixed internal defaults. Snooze is removed from every active runtime/API path; only strictly validated legacy storage may contain its former field.
 
 ## 2. Signatures
 
-The public signatures are defined in `app/shared/contracts.ts`. Engine commands return `EngineUpdate` (snapshot + effects); IPC wraps mutations in `Result<T>`.
-
 | Operation | Input | Output |
 |---|---|---|
-| PlatformAdapter.sample | activitySource (combined or mouse) | PlatformSample |
-| PlatformAdapter.subscribe | event listener | unsubscribe handle |
-| TimerEngine.acceptSample | PlatformSample | RuntimeSnapshot + effects |
-| SettingsStore.save | expectedRevision, SettingsV1 | updated settings or typed error |
-| Bridge.getSnapshot | none | RuntimeSnapshot |
-| Bridge.subscribeSnapshot | listener | unsubscribe handle |
-| Bridge.saveSettings | expectedRevision, SettingsV1 | settings revision + snapshot |
-| Bridge.pause | durationMinutes or until-resumed | RuntimeSnapshot |
-| Bridge.resume | none | RuntimeSnapshot |
-| Bridge.remindNow | none | reminder ID or suppression error |
-| Bridge.resolveReminder | reminderId, generation, action | RuntimeSnapshot |
-| Bridge.preview | validated reminder options | preview ID or suppression error |
-| Bridge.quit | none | clean cancellation then process exit |
+| defaultSettings | none | SettingsV2 |
+| resolveSettings | SettingsV2 | ResolvedSettings for immutable event options |
+| validateSettings | unknown | Result<SettingsV2> |
+| SettingsStore.load | none | settings/revision/warnings, migrating legacy disk data |
+| SettingsStore.save | expectedRevision,unknown settings | Result<settings/revision> after durable success |
+| PlatformAdapter.sample | combined source | PlatformSample |
+| TimerEngine.acceptSample | PlatformSample | EngineUpdate(snapshot,effects) |
+| Bridge.saveSettings | expectedRevision,SettingsV2 | Result<RuntimeSnapshot> |
+| Bridge.preview | SettingsV2 | Result<preview ID> |
+| Bridge.resolveReminder | ID,generation,acknowledge or skip | Result<RuntimeSnapshot> |
 
-Pause duration choices are 15/30/60 minutes or until-resumed. Reminder actions are acknowledge, skip, or snooze; snooze duration comes from validated settings. Preview is a separate lifecycle and cannot resolve a real reminder.
+Remaining whitelist commands cover pause15/30/60/until-resumed,resume,remindNow,cancelPreview,getSnapshot/getOverlay,readiness/sound/finished reports,openSettings and quit. Sender exact URL/WebContents role/main-frame and payload validation remain mandatory. No arbitrary Node/shell/path/channel bridge is exposed.
 
-## 3. Contracts
+## 3. Data and persistence contracts
 
-### SettingsV1
+SettingsV2 has schemaVersion2 plus exactly these fields:
 
-| Field | Type / constraint | Default |
+| Field | Constraint | Default |
 |---|---|---|
-| schemaVersion | integer, exactly 1 | 1 |
-| timer.mode | active or fixed | active |
-| timer.intervalMinutes | integer, 1..240 | 30 |
-| timer.activitySource | combined or mouse | combined |
-| timer.activeWindowSeconds | integer, 5..300 | 60 |
-| timer.longIdleMinutes | integer, 1..120; seconds >= active window | 10 |
-| reminder.visual | flash, mask, notification, none | flash |
-| reminder.soundEnabled | boolean | false |
-| reminder.soundId | shipped audio asset identifier | gentle |
-| reminder.volumePercent | integer, 0..100 | 50 |
-| reminder.flashOpacityPercent | integer, 5..80 | 20 |
-| reminder.flashColor | validated sRGB hex or theme-derived | theme-derived |
-| reminder.fadeInMs / fadeOutMs | integer, 100..5000 | 600 / 600 |
-| reminder.holdMs | integer, 0..10000 | 800 |
-| reminder.snoozeMinutes | integer, 1..60 | 5 |
-| reminder.screenScope | all, primary, selected | all |
-| reminder.screenIds | unique stable IDs, required for selected | empty |
-| reminder.message | non-empty trimmed plain text, <=200 characters | localized reminder |
-| appearance.theme | system, light, dark | system |
+| timer.mode | active/fixed | active |
+| timer.intervalMinutes | integer1..240 | 30 |
+| timer.longIdleMinutes | integer1..120 | 10 |
+| reminder.visual | flash/mask/notification/none | flash |
+| reminder.soundEnabled | boolean;true when visual=none | false |
+| appearance.theme | system/light/dark | system |
 | appearance.showTrayCountdown | boolean | true |
-| appearance.reduceMotion / reduceTransparency | system, on | system / system |
 | general.launchAtLogin | boolean | false |
 
-There is no preserve-after-long-idle setting. `visual=none` requires soundEnabled and volumePercent > 0. Unsupported mouse-only capability rejects that selection. Unknown fields are rejected at the IPC boundary; schema migrations are explicit.
+PRODUCT_DEFAULTS is readonly and central: combined input,60-second active window; fade600/hold800/fade600ms,opacity20%,theme-derived color; gentle sound/volume50;all screens,built-in message. resolveSettings copies core choices and resolves fixed parameters; ReminderEvent.settings uses ResolvedSettings. Fixed parameters never become editable/persisted V2 fields. System reductions come from platform observations only.
 
-PlatformSample: increasing sequence, trustworthy timestamp, combinedIdleMs, selectedSourceIdleMs, lockState (locked/unlocked/unknown), sleeping, displays, and capability statuses. Failed or unavailable measurements are nullable, never coerced to zero. Input content and pointer trajectories are never present.
+RuntimeSnapshot.settings is V2. No snoozed status/snoozeRemainingMs/snooze action or preview outcome exists. Real/preview events have immutable ID/generation/options/target IDs; exactly one real reminder exists. Only valid real mask acknowledgement emits rest_confirmed once. Preview identities/results are separate and cannot modify real time/rest.
 
-The implemented sample has required `clockTrusted: boolean`. A native continuous-clock fault sets false; fallback timestamps may order diagnostics but never prove absence duration. The engine conservatively clears progress and suppresses effects when clock trust is false.
+Storage envelope is settings+nonnegative safe-integer revision. Current validation is Node-free under app/shared/settings-validation.ts and reused by renderer/main. Legacy SettingsV1 validation is storage-only and strict, including removed old fields. A valid primary or last-good legacy envelope maps eight choices to V2; removed customizations do not survive resolution. Before replacement preserve original UTF-8 bytes once in settings.v1-backup.json without overwriting an existing valid migration backup. Sync temporary writes then publish backup/primary atomically. Migration failure preserves source and warns while retaining usable in-memory V2 and retry intent. Last-good/default recovery remains explicit; runtime progress and event IDs never persist.
 
-Capability status: available / unsupported / permission_required / error / unknown, plus non-sensitive reason. Required lock capability must be healthy before dispatch. Linux adapters verify the current session and desktop; logind hints alone are not proof of observed lock state.
-
-RuntimeSnapshot: settingsRevision, sequence, status, elapsedActiveMs, remainingMs or null, pauseRemainingMs or null, snoozeRemainingMs or null, currentReminderId or null, theme, capability summary, and latest reminder result. Renderer and tray share this snapshot. Paused/idle/locked status is explicit; countdown display does not decide eligibility.
-
-Reminder: immutable ID, generation, configuration snapshot, screen IDs, kind (real/preview), and channel results. Exactly one real reminder or snooze exists. Only a valid real mask acknowledge emits `rest_confirmed`; it is a runtime event, not a durable statistics page in v1.
-
-Persistence: versioned settings in userData/settings.json, atomic replace and last-known-good backup. Runtime counters and reminder IDs are not persisted. No product environment variables or cloud services are required.
+Login startup uses a stable executable and existing platform API/read-back. `prepareLoginChange(enabled)` captures actual OS state before mutation and returns apply/rollback; `saveWithLogin` must use that capture, never the persisted preference as a rollback substitute. Capture failure is LOGIN_READ_FAILED and prevents all writes. Apply or preference-save failure restores the captured OS state and leaves effective settings unchanged; failed rollback is LOGIN_ROLLBACK_FAILED. Mac captures Electron openAtLogin with read-back. Windows captures only exact owned Run/StartupApproved entries including presence, value kind, unexpanded string and approval bytes using bounded fixed PowerShell; do not touch unrelated entries or execute captured data. Linux captures owned desktop bytes/mode/absence, rejects symlinks and uses exclusive temporary writes/chmod/rename/read-back for restoration. Migration alone does not enable/disable OS login items. Windows owned legacy-path repair retains system approval; unrelated/missing items are untouched.
 
 ### Time invariants
 
-- Sample at 1-second cadence, integrate elapsed eligible time; never add a constant tick to compensate for delays.
-- Missing observations longer than 5 seconds are not credited as activity.
-- Mouse-only accumulation and combined long-idle detection use different fields.
-- Lock, sleep, pause, snooze, presentation, and critical faults block accumulation.
-- Long idle resets accumulated time even while manually paused.
-- Fixed deadlines skip missed periods; no historical queue.
-- A created reminder/snooze cancelled by suppression consumes its cycle; its old generation cannot restart after resume.
-- Theme/countdown display changes apply immediately without reset. Timer parameter changes reset an ordinary cycle; while a real reminder is presenting, save them for the next cycle without replacing that reminder's immutable parameters.
+- One-second native observations integrate eligible elapsed intervals, never constant ticks or renderer clocks.
+- Combined input alone drives both activity and long-idle checks, with60-second window. Missing observations>5 seconds are not credited.
+- Clock/input/lock failures are unknown/null and suppress new effects. Unknown lock is never unlocked.
+- Lock/sleep/pause/presentation/fault block accumulation; long idle clears even while paused.
+- Fixed deadlines skip missed beats; no historical queue or deferred reminder expiry exists.
+- A suppressed created reminder consumes its cycle and cannot revive after resume.
+- Core timer changes reset an ordinary cycle; while presenting they apply to the next cycle. Reminder creation options remain immutable.
+- Theme/countdown changes do not reset time. Snapshot sequence/revision prevents stale presentation updates.
 
-## 4. Validation & Error Matrix
+## 4. Validation and error matrix
 
-| Condition | Error / behavior |
+| Condition | Behavior |
 |---|---|
-| wrong type, out-of-range, empty required value | INVALID_SETTINGS; retain effective settings and draft |
-| active window exceeds long-idle threshold | INVALID_IDLE_WINDOW |
-| no usable reminder channel | NO_REMINDER_CHANNEL |
-| mouse-only capability unavailable | CAPABILITY_UNAVAILABLE |
-| selected screen list empty | INVALID_SCREEN_SELECTION |
-| config revision changed | SETTINGS_CONFLICT; return current revision |
-| persistence failure | SETTINGS_WRITE_FAILED; retain last effective state |
-| corrupt settings on startup | recover last-known-good/default, show recovery message |
-| locked/sleeping/unknown lock or critical fault | REMINDER_SUPPRESSED; no visual or sound effect |
-| existing reminder or preview collision | REMINDER_BUSY; do not create another event |
-| preview preparation or all-channel delivery fails | REMINDER_DELIVERY_FAILED and terminal preview result; clear preview ID without resetting the real timer |
-| stale/duplicate resolve | STALE_REMINDER or idempotent no-op; no reset, no rest event |
-| obsolete/duplicate platform sample | ignore; no double integration |
-| all channels failed | settle one cycle, report error, no immediate retry |
+| Wrong version/type/range,missing or unknown field | INVALID_SETTINGS;no persistence or effective replacement |
+| visual=none with sound=false | NO_REMINDER_CHANNEL |
+| Old snooze action | INVALID_COMMAND;never deferred scheduling |
+| Stale config revision | SETTINGS_CONFLICT,latest revision returned |
+| Persistence failure | SETTINGS_WRITE_FAILED,prior effective settings retained;restore actual captured OS startup state |
+| Login capture/rollback failure | LOGIN_READ_FAILED before mutation / LOGIN_ROLLBACK_FAILED with accurate partial-state warning |
+| Invalid/corrupt disk data | Last-good/default recovery with warning |
+| Migration backup/write failure | Source retained,warning,in-memory V2 and later retry |
+| Locked/sleeping/critical observation fault | Suppress effects,cleanup current event |
+| Existing event/preview collision | REMINDER_BUSY |
+| Stale/duplicate action | No reset/rest side effect |
+| All-channel delivery failure | Settle one cycle,cleanup,report;no retry storm |
 
-Sender origin and payload validation apply to every renderer call. No arbitrary IPC channel, native module, shell, or user-supplied file path is exposed.
+## 5. Good / Base / Bad cases
 
-## 5. Good / Base / Bad Cases
+Good: legacy mouse/custom-color/screen/snooze preferences migrate only eight choices; runtime uses combined/theme/all/fixed defaults. Base: flash+sound belongs to one event and settles once. Good: acknowledge on A closes A/B and rest increments once. Bad: removing only the button leaves a backend snooze branch. Bad: treating failed migration as a corrupt valid legacy file and discarding core choices. Bad: default-derived options are persisted as custom V2 fields.
 
-- Good: combined input drives the default mode; long idle clears progress; the next input starts a full interval.
-- Base: a flash and optional sound belong to one reminder. Flash completion settles the cycle once and does not emit rest_confirmed.
-- Good: acknowledge on screen A closes A and B; duplicate acknowledge on B has no effect.
-- Bad: a keyboard user is treated as long-idle just because activitySource=mouse; use combinedIdleMs for long-idle detection.
-- Bad: a 30-minute sleep contributes 30 minutes of activity; sleep is excluded and trusted absence duration drives reset.
-- Bad: a late previous-generation window action resets the next cycle; reject obsolete generation.
+## 6. Required assertions
 
-## 6. Tests Required
-
-Virtual-clock tests: active-window and long-idle boundaries, 25-minute then 10-minute idle reset, fixed missed deadlines, delayed/duplicate ticks, NTP jumps, startup/restart, lock at dispatch, sleep duration, pause/snooze cancellation, old generation, repeated multi-screen resolve, all-channel failure, settings conflicts and corruption.
-
-Integration assertions: one main-process owner; typed preload API; no renderer Node access; shared snapshot sequences for tray/UI; previews cannot mutate real timer; destroyed windows cannot leave an input-blocking overlay; platform unknown is not unlocked.
-
-Native assertions: actual current-session input, lock/sleep/resume, permissions, displays, DPI, notifications in signed/packaged binaries. Mock tests do not establish platform support.
+Tests must cover exact V2 keys/ranges/unknown-field rejection and storage-only strict V1 migration; original-byte/no-overwrite backup; migration failure/restart/last-good recovery; login rollback; fixed defaults overriding removed customization. Engine tests cover fixed/active boundaries,missed beats,absence/long idle,clock failure,ack/skip/automatic,idempotence,no-reschedule,immutable current event and next-cycle timer settings. Integration validates exact sender/identity,old snooze rejection,real/preview separation,all-overlay cleanup and unknown-lock safety. Actual Electron/packaged tests separately prove UI/bridge/native loading; physical lock/sleep/multi-screen/signing requires host acceptance.
 
 ## 7. Wrong vs Correct
 
-Wrong: UI timer and tray timer each decrement their own counter. Correct: one engine snapshot drives both displays.
+Wrong: rollback startup to the saved preference when actual OS state differs. Correct: capture actual state before any mutation and restore that state.
 
-Wrong: a notification was submitted, therefore the user rested. Correct: only the user's real mask acknowledge has that product meaning.
+Wrong: UI and tray have separate counters. Correct: both consume one snapshot.
 
-Wrong: no lock measurement means unlocked. Correct: unknown lock state blocks new reminders and surfaces a reason.
+Wrong: persist or accept removed advanced options in V2. Correct: strict eight-field schema plus central defaults resolved into events.
 
-## Implementation and review notes
+Wrong: a submitted notification proves rest. Correct: only real mask acknowledge has that product meaning.
 
-- `new TimerEngine(settings, revision, nowMs?)` is pure; `acceptSample` and commands return `EngineUpdate`. `getSnapshot` clones effective state. Fresh sampling precedes renderer commands.
-- `new SettingsStore(userDataDirectory)`, `load(): Promise<LoadedSettings>` and `save(expectedRevision, unknownPayload, capabilities?, displays?)` own the disk envelope `{settings, revision}`. Temp files use exclusive create, sync and rename; backups hold the previous valid envelope. Saves serialize and validate before writing.
-- Availability checks are transition-aware: `validateSettings(value, capabilities?, displays?, previous?)` retains unchanged, structurally valid effective source/screen intent while unavailable, so theme/countdown updates remain independent. New unavailable selections, activating an unavailable mouse-only source, empty screen lists and invalid structural values still fail. Main uses its effective baseline; the store uses its own revision-checked baseline.
-- `currentPreviewId` and `latestPreviewResult` are ephemeral main-owned snapshot fields. Preview start, automatic end, mask action, suppression/cancellation and failure publish through one coordinator lifecycle callback. Preview commands return a typed failure when startup cannot present; preview transitions never reset engine time or emit rest confirmation. Main snapshot sequence includes preview transitions so subscribers can observe them even when timer state is unchanged.
-- Overlay IPC has fixed readiness, playback-start and per-channel completion commands. `overlaySoundStarted(id, generation)` signals successful `audio.play()` before submitting a combined silent notification. Main validates sender/frame, exact registered surface URL, payload, immutable identity, ready state and sound ownership. Renderer-origin reports cannot resolve another screen's channels.
-- Vite main/preload entry filenames are explicitly `main.js` / `preload.js`; both source entries are named `index.ts` and would otherwise collide. Packager keeps `.vite`, production native dependencies and resources. Koffi stays external and Forge unpacks native modules.
-- Never infer Linux tray support from constructing an Electron Tray. Unknown capability keeps an accessible main window. Windows/macOS template or theme-specific icons follow system tray appearance; disabling numbers restores the eye icon without changing the engine.
-- Capture WebContents IDs while windows are alive. Electron `closed` callbacks cannot read `window.webContents` after destruction; doing so throws and can block normal exit. The reminder test double intentionally rejects destroyed access, and real Electron e2e must prove shutdown.
-- `subscribeOpenSettings` listens to trusted main navigation and consumes pending requests on registration, so a newly created renderer cannot miss a tray settings request. Dirty drafts still offer keep/discard.
-- Test-only `EYECARE_TEST_USER_DATA` is respected only when `app.isPackaged` is false and must be applied before `requestSingleInstanceLock()`. Different test directories must launch concurrently; the same directory retains the product's single-instance behavior. Runtime needs no environment variables. Signing env keys belong to README/build config and are never persisted.
-- Login startup must use a persistent executable: Squirrel's parent-directory stub, the portable executable, or Linux AppImage's original `APPIMAGE` path. Never persist an `app-<version>` or AppImage mount path. Windows legacy migration reads only `org.eyecare.desktop` under the current user's Run key, validates exact install root/executable/no args and retains the owned launch item's OS approval. Missing/stable/unrelated entries are not recreated; disabling works even with a missing stub. Native read errors become startup warnings rather than blocking the app. macOS receives only macOS login options.
+Wrong: absence of lock evidence means unlocked. Correct: unknown suppresses.
+
+## Implementation guardrails
+
+- Atomic saves serialize and use expected revision. Publish effective state only after successful disk/OS transaction.
+- Preload is role/URL validated, renderer has no Node or remote content, production CSP remains local.
+- Capture WebContents IDs while alive; closed callbacks must not access destroyed webContents. Every delivery failure/cancel destroys all owned surfaces and stops audio.
+- Event readiness and playback reports match registered sender+ID+generation and original options. Appearance refresh must not restart audio/flash.
+- Named main/preload outputs avoid index.js collision; Koffi remains external and native modules unpacked.
+- Development EYECARE_TEST_USER_DATA applies before single-instance lock and is ignored when packaged. Tests never change real OS permissions/login preferences.
+- Never infer Linux tray availability by allocating Tray. Unknown tray retains main-window recovery; unknown Wayland input/overlay remains explicit.
 
 ### macOS native observations and build verification
 

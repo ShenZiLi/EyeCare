@@ -1,11 +1,13 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, screen } from 'electron';
 import squirrelStartup from 'electron-squirrel-startup';
 import { randomUUID } from 'node:crypto';
+import { resolveSettings } from '../shared/contracts';
 import type { EngineUpdate, PreviewResult, ReminderEvent, Result, RuntimeSnapshot } from '../shared/contracts';
 import { TimerEngine } from './engine/timer-engine';
 import { SettingsStore } from './settings/settings-store';
+import { saveWithLogin } from './settings/save-with-login';
 import { validateSettings } from './settings/validation';
-import { PlatformAdapter, setLaunchAtLogin, migrateWindowsLaunchAtLogin } from './platform';
+import { PlatformAdapter, prepareLoginChange, migrateWindowsLaunchAtLogin } from './platform';
 import { ReminderCoordinator } from './reminders/coordinator';
 import { TrayPresenter } from './tray/presenter';
 import { isTrustedSurface, loadSurface, windowOptions } from './windows';
@@ -50,14 +52,14 @@ function publish(update?: EngineUpdate) {
 }
 function sample() {
   if (!engine || !adapter) return;
-  const observation = adapter.sample(engine.getSnapshot().settings.timer.activitySource);
+  const observation = adapter.sample();
   if (tray && !tray.available) observation.capabilities.tray = { state: 'unsupported', reason: '未检测到可用系统托盘' };
   publish(engine.acceptSample(observation));
 }
 function checkEligible(preview = false) {
   sample();
   const snapshot = presentedSnapshot();
-  if (coordinator.current || snapshot.currentReminderId || (!preview && snapshot.status === 'snoozed')) throw new CommandError({ code: 'REMINDER_BUSY', message: '已有提醒或延期，请先完成当前提醒' });
+  if (coordinator.current || snapshot.currentReminderId) throw new CommandError({ code: 'REMINDER_BUSY', message: '已有提醒，请先完成当前提醒' });
   const blocked = preview ? ['starting', 'locked', 'sleeping', 'capability_error'] : ['starting', 'locked', 'sleeping', 'capability_error', 'paused', 'long_idle'];
   if (blocked.includes(snapshot.status)) throw new CommandError({ code: 'REMINDER_SUPPRESSED', message: snapshot.statusReason || '当前状态不允许提醒' });
 }
@@ -111,14 +113,11 @@ function registerIPC() {
     if (!Number.isSafeInteger(fields.expectedRevision) || (fields.expectedRevision as number) < 0) throw new CommandError({ code: 'INVALID_COMMAND', message: '配置版本无效' });
     sample();
     const snapshot = presentedSnapshot();
-    const validation = validateSettings(fields.settings, snapshot.capabilities, snapshot.displays, snapshot.settings);
+    const validation = validateSettings(fields.settings);
     if (!validation.ok) return validation;
     if (fields.expectedRevision !== snapshot.settingsRevision) return { ok: false, error: { code: 'SETTINGS_CONFLICT', message: '设置已在其他窗口更新，请保留输入并重新应用', currentRevision: snapshot.settingsRevision } };
-    const oldLogin = snapshot.settings.general.launchAtLogin;
-    const newLogin = validation.value.general.launchAtLogin;
-    if (oldLogin !== newLogin) await setLaunchAtLogin(newLogin);
-    const result = await store.save(fields.expectedRevision as number, validation.value, snapshot.capabilities, snapshot.displays);
-    if (!result.ok) { if (oldLogin !== newLogin) await setLaunchAtLogin(oldLogin); return result; }
+    const result = await saveWithLogin(store, fields.expectedRevision as number, validation.value, snapshot.settings.general.launchAtLogin, prepareLoginChange);
+    if (!result.ok) return result;
     return apply(engine.updateSettings(result.value.settings, result.value.revision));
   });
   handle('pause', ['main', 'tray'], (_event, value) => {
@@ -137,11 +136,10 @@ function registerIPC() {
   });
   handle('preview', ['main'], async (_event, value) => {
     const fields = payload(value, ['settings']); checkEligible(true);
-    const snapshot = presentedSnapshot(); const validation = validateSettings(fields.settings, snapshot.capabilities, snapshot.displays, snapshot.settings);
+    const snapshot = presentedSnapshot(); const validation = validateSettings(fields.settings);
     if (!validation.ok) return validation;
     const settings = validation.value;
-    const targets = settings.reminder.screenScope === 'primary' ? snapshot.displays.filter(display => display.primary) : settings.reminder.screenScope === 'selected' ? snapshot.displays.filter(display => settings.reminder.screenIds.includes(display.id)) : snapshot.displays;
-    const event: ReminderEvent = { id: `preview-${randomUUID()}`, generation: 0, kind: 'preview', settings, screenIds: targets.map(display => display.id), createdAtMs: 0 };
+    const event: ReminderEvent = { id: `preview-${randomUUID()}`, generation: 0, kind: 'preview', settings: resolveSettings(settings), screenIds: snapshot.displays.map(display => display.id), createdAtMs: 0 };
     return coordinator.present(event);
   });
   handle('cancel-preview', ['main'], () => { if (coordinator.current?.kind === 'preview') coordinator.cancel(); return { ok: true, value: null }; });

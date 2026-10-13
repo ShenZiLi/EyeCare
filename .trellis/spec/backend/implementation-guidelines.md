@@ -6,11 +6,11 @@ Read `runtime-contract.md`, current PRD/design/execution record and `app/shared/
 
 ## Signatures and shared contracts
 
-Import `SettingsV1`, `PlatformSample`, `EngineUpdate`, `RuntimeSnapshot`, `ReminderEvent`, `Result<T>` and channel types from the shared contract. Renderer data crosses `unknown` validation once. Native provider errors return unknown/null through the platform adapter; only engine chooses the user-visible runtime priority.
+Import `SettingsV2`, `PlatformSample`, `EngineUpdate`, `RuntimeSnapshot`, `ReminderEvent`, `Result<T>` and channel types from the shared contract. Renderer data crosses `unknown` validation once. Native provider errors return unknown/null through the platform adapter; only engine chooses the user-visible runtime priority.
 
 ## Persistence and commands
 
-Settings schema rejects unknown nested fields, nonintegral times, invalid channel combinations, unsupported mouse source and empty selections. Save changes only after durable success and revision agreement; failed login startup rolls back OS preference. Counters/reminder IDs never persist.
+Settings schema rejects unknown nested fields, nonintegral times, invalid channel combinations, removed advanced fields and invalid visual/sound pairs. Save changes only after durable success and revision agreement; failed login startup restores actual OS state captured before mutation, never a potentially divergent saved preference. Capture failure prevents writes; rollback failure is reported separately. Counters/reminder IDs never persist.
 
 ## Error behavior
 

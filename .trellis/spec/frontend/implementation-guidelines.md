@@ -1,29 +1,25 @@
 # Frontend implementation guidelines
 
-## Scope and pre-development checklist
+## Pre-development
 
-Read `ui-contract.md`, MASTER.md, the active PRD and shared bridge types. Modify renderer state only for presentation and drafts; every real runtime action invokes the whitelist bridge.
+Read ui-contract.md,MASTER.md,currentPRD and shared V2bridge types. Main decides time/eligibility;renderer only edits8 core preferences and presents snapshots.
 
-## Component signatures
+## State and signatures
 
-`App({tray?:boolean})` renders a runtime snapshot and `SettingsEditor` state. `SettingsEditor.edit(next, auto, immediate?)`, `flush()`, `retry()`, `saveManual()` and `accept(snapshot)` own validated field intents and serialize the existing save bridge. `Overlay` consumes `OverlayState`. `Field`, `Toggle`, `Section`, `Notice` and `Modal` provide shared form/accessibility structure. Pages use the one SVG icon family from lucide-react.
+App subscribes to SettingsEditor,which owns versioned field intents,effective snapshots and one persistence queue. edit(next,immediate?),flush(),retry(),accept(snapshot) use SettingsV2 and shared Node-free settings-validation.ts. Every page autosaves;no manual draft/save API. Overlay consumes ResolvedSettings only from immutable main event.
 
-## Theme and layout contracts
+## Validation and feedback
 
-All colors use centralized semantic CSS variables. Follow system/light/dark from main; opaque fallback keeps identical structure. Numeric time is tabular, never animated or announced every second. Main minimum640x520, compact labeled navigation, readable controls and scrollable settings. No network fonts.
+Discrete changes persist immediately;numeric input waits300ms or blur. Fields preserve empty/invalid input with inline errors. Later intent versions survive old save responses. Unrelated valid changes can persist. None+soundfalse is rejected;UI chooses only-sound with an atomic true sound flag. General displays effective settings on failure and retains retry intents. Restore confirms once and uses the same queue. Preview errors remain visible in the active dialog.
 
-## Validation and error behavior
+## Style and accessibility
 
-Server field errors appear beside visible labels. Trigger/reminder edits autosave: discrete edits immediately, numeric/text edits after 300 ms or blur. Field intent versions, baseline settings and expected revision stay distinct; failed saves or newer snapshots cannot discard user input. Validate a composed candidate using the shared pure validator; prune only invalid/dependent intents while persisting unrelated valid fields. Theme/countdown commits do not save manual General drafts. A failed manual save must retain its manual retry context; error feedback must identify the right recovery action. Failed preview errors remain inside the active dialog. Preview uses current reminder inputs with effective non-reminder settings, so invalid timer input cannot block effect preview.
+Use centralized existing theme tokens,system/CJK fonts,tabular digits and lucide SVGs. Keep minimum640x520,readable labels,keyboard focus and currentOS reduction fallback. No advanced controls or manual save bar;capability details only relevant abnormalities. Never declare native support from style/framework flags.
 
-## Good/base/bad cases
+## Cases
 
-Good: Tab scrolls a switch fully above the General sticky save bar; instant pages have no save bar. Base: normal theme change updates tokens while the reminder animation consumes its original options. Bad: theme updates restart a flash, Escape confirms rest, numeric invalid values silently normalize, an old save replaces a later edit, a preview mutates the main engine.
+Good: autosave41-minute interval and12-minute idle threshold survive an in-flight theme save. Base: know in preview closes onlypreview. Bad: old V1parameters configure the UI,theme refresh restartsflash,skip confirms rest or loginfailure looks enabled.
 
 ## Quality check
 
-Run `npm run typecheck` and `npm run lint`; rebuild then run `npm run test:e2e` for surface changes. Inspect both palettes, compact/large text, focus and opaque/motion fallbacks. Composite contrast, DPI, actual tray/desktop backgrounds and multi-display focus require native evidence.
-
-## Wrong vs correct
-
-Wrong: a screenshot/test mock proves platform support. Correct: use screenshots for layout, actual Electron tests for wiring, and documented native-host runs for OS capabilities.
+Run typecheck/lint and meaningful controller tests;rebuild then actualElectronGUI tests for surface changes. Verify8-choice inventory,all-page save/retry/restore,only-sound,mask/no-snooze and preview isolation. Preserve Mac-prefixed vs originalWindows screenshots. Actual desktop contrast/DPI/physical lock/sleep/multidisplay/signing remain host acceptance.

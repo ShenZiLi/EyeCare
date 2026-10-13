@@ -114,7 +114,6 @@ async function main() {
       settings.timer.longIdleMinutes = 120;
       settings.reminder.visual = 'flash';
       settings.reminder.soundEnabled = false;
-      settings.reminder.screenScope = 'primary';
       settings.appearance.showTrayCountdown = true;
       const startBeforeMs = nativeNow();
       await save(settings);

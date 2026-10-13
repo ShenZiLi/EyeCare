@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -10,7 +10,7 @@ vi.mock('node:fs', async importOriginal => {
   const actual = await importOriginal<typeof import('node:fs')>();
   return { ...actual, existsSync: (file: import('node:fs').PathLike) => filesystem.exists(file) ?? actual.existsSync(file) };
 });
-import { autostartDesktopEntry, autostartExecutable, migrateWindowsLaunchAtLogin, setLaunchAtLogin } from '../../app/main/platform/autostart';
+import { autostartDesktopEntry, autostartExecutable, migrateWindowsLaunchAtLogin, prepareLoginChange, setLaunchAtLogin } from '../../app/main/platform/autostart';
 
 const folders: string[] = [];
 afterEach(async () => { vi.resetAllMocks(); await Promise.all(folders.splice(0).map(folder => rm(folder, { recursive: true, force: true }))); });
@@ -72,6 +72,92 @@ describe('persistent login startup paths', () => {
     const executable = 'C:\\EyeCare\\app-1.0.2\\eyecare.exe';
     await setLaunchAtLogin(false, { platform: 'win32', executable, env: {} });
     expect(login.setLoginItemSettings).toHaveBeenCalledWith({ openAtLogin: false, path: executable, args: [], name: 'org.eyecare.desktop' });
+  });
+});
+
+describe('actual OS login state snapshots', () => {
+  const macContext = { platform: 'darwin' as const, executable: '/Applications/EyeCare.app/Contents/MacOS/eyecare', env: {} };
+  it('captures a system-disabled Mac choice and restores it after requested change', async () => {
+    let actual = false;
+    login.getLoginItemSettings.mockImplementation(() => ({ openAtLogin: actual }));
+    login.setLoginItemSettings.mockImplementation(options => { actual = options.openAtLogin; });
+    const change = await prepareLoginChange(true, macContext);
+    expect(login.setLoginItemSettings).not.toHaveBeenCalled();
+    await change.apply(); expect(actual).toBe(true);
+    await change.rollback(); expect(actual).toBe(false);
+    expect(login.getLoginItemSettings).toHaveBeenCalledWith({});
+  });
+  it('fails safely without a typed Mac snapshot', async () => {
+    login.getLoginItemSettings.mockReturnValue({});
+    await expect(prepareLoginChange(true, macContext)).rejects.toThrow('状态无效');
+    expect(login.setLoginItemSettings).not.toHaveBeenCalled();
+  });
+  async function linuxFixture() {
+    const folder = await mkdtemp(path.join(tmpdir(), 'eyecare-login-rollback-')); folders.push(folder);
+    await mkdir(path.join(folder, 'autostart'));
+    return { context: { platform: 'linux' as const, executable: '/opt/eyecare', env: { XDG_CONFIG_HOME: folder } }, file: path.join(folder, 'autostart', 'eyecare.desktop'), other: path.join(folder, 'autostart', 'other.desktop') };
+  }
+  it('restores Linux original bytes/mode including custom disabled values, leaves others intact', async () => {
+    const { context, file, other } = await linuxFixture();
+    const original = Buffer.from('[Desktop Entry]\r\nHidden=true\r\n# custom\u00a0comment\r\n');
+    await writeFile(file, original); await chmod(file, 0o764); await writeFile(other, 'unrelated');
+    const change = await prepareLoginChange(true, context); await change.apply();
+    expect(await readFile(file)).not.toEqual(original);
+    await change.rollback();
+    expect(await readFile(file)).toEqual(original); expect((await stat(file)).mode & 0o777).toBe(0o764);
+    expect(await readFile(other, 'utf8')).toBe('unrelated');
+  });
+  it('restores absence of the Linux owned file', async () => {
+    const { context, file } = await linuxFixture();
+    const change = await prepareLoginChange(true, context); await change.apply(); await change.rollback();
+    await expect(readFile(file)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+  it('rejects existing and newly inserted Linux symlinks before writing their targets', async () => {
+    const { context, file, other } = await linuxFixture(); await writeFile(other, 'untouched');
+    const change = await prepareLoginChange(true, context);
+    await symlink(other, file);
+    await expect(change.apply()).rejects.toThrow('普通文件');
+    await expect(change.rollback()).rejects.toThrow('普通文件');
+    await expect(prepareLoginChange(true, context)).rejects.toThrow('普通文件');
+    expect(await readFile(other, 'utf8')).toBe('untouched');
+  });
+  const windowsContext = { platform: 'win32' as const, executable: 'C:\\Portable\\eyecare.exe', env: {} };
+  it('captures and restores exact named Windows Run/approval data with safe encoding', async () => {
+    const original = { run: { present: true, kind: 'ExpandString', value: '"%LOCALAPPDATA%\\EyeCare\\eyecare.exe" --arg "$x"; malicious' }, approved: { present: true, kind: 'Binary', value: Buffer.from([3, 0, 0, 0, 1, 2, 3, 4]).toString('base64') } };
+    const scripts: string[] = [];
+    const registry = vi.fn(async (script: string) => {
+      scripts.push(script);
+      if (script.includes('function RestoreOwned')) return '';
+      return JSON.stringify(original);
+    });
+    const change = await prepareLoginChange(true, windowsContext, registry);
+    expect(login.setLoginItemSettings).not.toHaveBeenCalled();
+    login.getLoginItemSettings.mockReturnValue({ openAtLogin: true });
+    await change.apply();
+    expect(login.setLoginItemSettings).toHaveBeenCalledWith({ openAtLogin: true, path: windowsContext.executable, args: [], name: 'org.eyecare.desktop' });
+    await change.rollback();
+    const restore = scripts.find(script => script.includes('function RestoreOwned'))!;
+    expect(restore).toContain("$entryName = 'org.eyecare.desktop'");
+    expect(restore).toContain('StartupApproved\\Run');
+    expect(restore).not.toContain('malicious');
+    const encoded = restore.match(/FromBase64String\('([A-Za-z0-9+/=]+)'\)/)![1];
+    expect(JSON.parse(Buffer.from(encoded, 'base64').toString('utf8'))).toEqual(original);
+    expect(registry).toHaveBeenCalledTimes(3);
+  });
+  it('preserves absent Windows entries and reports an unsuccessful restore readback', async () => {
+    const absent = { run: { present: false }, approved: { present: false } };
+    const registry = vi.fn().mockResolvedValueOnce(JSON.stringify(absent)).mockResolvedValueOnce('').mockResolvedValueOnce(JSON.stringify({ ...absent, run: { present: true, kind: 'String', value: 'unexpected' } }));
+    const change = await prepareLoginChange(false, windowsContext, registry);
+    await expect(change.rollback()).rejects.toThrow('未能恢复');
+    expect(registry.mock.calls[1][0]).toContain('Remove-ItemProperty -LiteralPath $path -Name $entryName');
+    expect(registry.mock.calls[1][0]).not.toContain('Remove-Item -');
+  });
+  it.each([
+    { run: { present: true, kind: 'DWord', value: 1 }, approved: { present: false } },
+    { run: { present: false }, approved: { present: true, kind: 'Binary', value: 'not base64!' } },
+  ])('rejects unsupported Windows data before a native write', async value => {
+    await expect(prepareLoginChange(true, windowsContext, async () => JSON.stringify(value))).rejects.toThrow();
+    expect(login.setLoginItemSettings).not.toHaveBeenCalled();
   });
 });
 

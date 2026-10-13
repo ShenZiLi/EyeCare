@@ -1,56 +1,43 @@
 import { describe, expect, it } from 'vitest';
-import { defaultSettings, type Capabilities, type DisplayInfo } from '../../app/shared/contracts';
-import { validateSettings } from '../../app/main/settings/validation';
+import { defaultSettings, PRODUCT_DEFAULTS, resolveSettings } from '../../app/shared/contracts';
+import { validateSettings } from '../../app/shared/settings-validation';
 
-describe('SettingsV1 strict trust boundary', () => {
-  it('accepts and clones the complete documented defaults', () => {
+describe('SettingsV2 strict trust boundary', () => {
+  it('accepts and independently clones the eight documented core defaults', () => {
     const settings = defaultSettings(); const result = validateSettings(settings);
     expect(result).toEqual({ ok: true, value: settings });
+    expect(settings.schemaVersion).toBe(2);
+    expect(Object.keys(settings.timer)).toEqual(['mode', 'intervalMinutes', 'longIdleMinutes']);
+    expect(Object.keys(settings.reminder)).toEqual(['visual', 'soundEnabled']);
+    expect(Object.keys(settings.appearance)).toEqual(['theme', 'showTrayCountdown']);
+    expect(Object.keys(settings.general)).toEqual(['launchAtLogin']);
     if (result.ok) { result.value.timer.intervalMinutes = 1; expect(settings.timer.intervalMinutes).toBe(30); }
   });
-  it.each([null, [], {}, { ...defaultSettings(), extra: true }, { ...defaultSettings(), timer: { ...defaultSettings().timer, extra: 1 } }, { ...defaultSettings(), schemaVersion: 2 }])('rejects malformed or future/unknown fields: %j', payload => { expect(validateSettings(payload).ok).toBe(false); });
+  it.each([null, [], {}, { ...defaultSettings(), extra: true }, { ...defaultSettings(), timer: { ...defaultSettings().timer, extra: 1 } }, { ...defaultSettings(), schemaVersion: 1 }, { ...defaultSettings(), schemaVersion: 3 }])('rejects malformed or legacy/future fields at the live boundary: %j', value => { expect(validateSettings(value).ok).toBe(false); });
+  it('rejects inherited fields that would disappear during structured cloning', () => {
+    const settings = defaultSettings();
+    expect(validateSettings(Object.create(settings)).ok).toBe(false);
+    expect(validateSettings({ ...settings, timer: Object.create(settings.timer) }).ok).toBe(false);
+  });
   it('rejects fractional, NaN and overflow values rather than silently coercing', () => {
     for (const intervalMinutes of [0, 241, 1.5, NaN, Infinity, '30']) expect(validateSettings({ ...defaultSettings(), timer: { ...defaultSettings().timer, intervalMinutes } }).ok).toBe(false);
+    for (const longIdleMinutes of [0, 121, 1.5, NaN, '10']) expect(validateSettings({ ...defaultSettings(), timer: { ...defaultSettings().timer, longIdleMinutes } }).ok).toBe(false);
   });
-  it('validates idle-window relation, usable channels and selection as explicit product errors', () => {
-    const s = defaultSettings(); s.timer.longIdleMinutes = 1; s.timer.activeWindowSeconds = 61;
-    expect(validateSettings(s)).toMatchObject({ ok: false, error: { code: 'INVALID_IDLE_WINDOW' } });
-    s.timer.activeWindowSeconds = 60; s.reminder.visual = 'none';
-    expect(validateSettings(s)).toMatchObject({ ok: false, error: { code: 'NO_REMINDER_CHANNEL' } });
-    s.reminder.soundEnabled = true; s.reminder.volumePercent = 0;
-    expect(validateSettings(s).ok).toBe(false);
-    s.reminder.volumePercent = 1; s.reminder.screenScope = 'selected';
-    expect(validateSettings(s)).toMatchObject({ ok: false, error: { code: 'INVALID_SCREEN_SELECTION' } });
+  it('requires sound when visual is none while one-minute idle remains valid', () => {
+    const settings = defaultSettings(); settings.timer.longIdleMinutes = 1; expect(validateSettings(settings).ok).toBe(true);
+    settings.reminder.visual = 'none'; expect(validateSettings(settings)).toMatchObject({ ok: false, error: { code: 'NO_REMINDER_CHANNEL' } });
+    settings.reminder.soundEnabled = true; expect(validateSettings(settings).ok).toBe(true);
   });
-  it('does not enable mouse-only when source capability is unknown', () => {
-    const s = defaultSettings(); s.timer.activitySource = 'mouse';
-    const caps = { mouse: { state: 'unknown', reason: 'source cannot be confirmed' } } as Capabilities;
-    expect(validateSettings(s, caps)).toMatchObject({ ok: false, error: { code: 'CAPABILITY_UNAVAILABLE' } });
+  it.each([['timer', 'activitySource', 'mouse'], ['timer', 'activeWindowSeconds', 5], ['reminder', 'snoozeMinutes', 5], ['reminder', 'message', 'custom'], ['reminder', 'soundId', 'bell'], ['appearance', 'reduceMotion', 'on']] as const)('rejects removed customization %s.%s', (section, key, value) => {
+    const settings = defaultSettings(); expect(validateSettings({ ...settings, [section]: { ...settings[section], [key]: value } }).ok).toBe(false);
   });
-  it('rejects duplicate screen identifiers and executable colour strings', () => {
-    const s = defaultSettings(); s.reminder.screenIds = ['a', 'a'];
-    expect(validateSettings(s).ok).toBe(false);
-    s.reminder.screenIds = []; s.reminder.flashColor = 'url(javascript:alert(1))';
-    expect(validateSettings(s).ok).toBe(false);
-  });
-  it('retains saved mouse intent for unrelated updates without allowing a newly unavailable source', () => {
-    const previous = defaultSettings(); previous.timer.activitySource = 'mouse';
-    const caps = { mouse: { state: 'error', reason: 'disconnected' } } as Capabilities;
-    const next = structuredClone(previous); next.appearance.theme = 'dark'; next.appearance.showTrayCountdown = false;
-    expect(validateSettings(next, caps, undefined, previous).ok).toBe(true);
-    expect(validateSettings(next, caps, undefined, defaultSettings()).ok).toBe(false);
-    const fixed = structuredClone(previous); fixed.timer.mode = 'fixed';
-    expect(validateSettings(next, caps, undefined, fixed).ok).toBe(false);
-    expect(validateSettings(fixed, caps, undefined, previous).ok).toBe(true);
-  });
-  it('retains saved unplugged screen intent but rejects empty or new unavailable selections', () => {
-    const previous = defaultSettings(); previous.reminder.screenScope = 'selected'; previous.reminder.screenIds = ['unplugged'];
-    const next = structuredClone(previous); next.appearance.theme = 'dark';
-    expect(validateSettings(next, undefined, [], previous).ok).toBe(true);
-    expect(validateSettings(next, undefined, [], defaultSettings()).ok).toBe(false);
-    next.reminder.screenIds = []; expect(validateSettings(next, undefined, [], previous).ok).toBe(false);
-    next.reminder.screenIds = ['other']; expect(validateSettings(next, undefined, [], previous).ok).toBe(false);
-    next.reminder.screenIds = ['primary', 'new-missing'];
-    expect(validateSettings(next, undefined, [{ id: 'primary' }] as DisplayInfo[], previous).ok).toBe(false);
+  it('resolves fixed defaults into independent creation-time options without persisting them', () => {
+    const settings = defaultSettings(); const resolved = resolveSettings(settings);
+    expect(resolved.timer).toMatchObject({ activitySource: 'combined', activeWindowSeconds: 60 });
+    expect(resolved.reminder).toMatchObject({ soundId: 'gentle', volumePercent: 50, fadeInMs: 600, holdMs: 800, fadeOutMs: 600, flashOpacityPercent: 20, flashColor: 'theme-derived', screenScope: 'all', screenIds: [], message: PRODUCT_DEFAULTS.message });
+    expect(resolved.reminder).not.toHaveProperty('snoozeMinutes');
+    resolved.reminder.screenIds.push('display'); resolved.timer.intervalMinutes = 1;
+    expect(resolveSettings(settings).reminder.screenIds).toEqual([]); expect(settings.timer.intervalMinutes).toBe(30);
+    expect(validateSettings(resolved).ok).toBe(false);
   });
 });

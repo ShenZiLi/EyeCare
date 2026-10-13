@@ -18,7 +18,7 @@ test('built distribution launches with packaged native dependencies and isolated
     expect(snapshot.capabilities.lock.state).toBe('available');
     expect(snapshot.capabilities.input.state).toBe('available');
     expect(await page.evaluate(() => typeof (window as unknown as { require?: unknown }).require)).toBe('undefined');
-    expect(snapshot.settings.schemaVersion).toBe(1);
+    expect(snapshot.settings.schemaVersion).toBe(2);
   } finally { await desktop.close(); }
 });
 

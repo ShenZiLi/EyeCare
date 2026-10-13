@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { TimerEngine } from '../../app/main/engine/timer-engine';
-import { defaultSettings, type Capabilities, type PlatformSample, type SettingsV1 } from '../../app/shared/contracts';
+import { defaultSettings, type Capabilities, type PlatformSample, type SettingsV2 } from '../../app/shared/contracts';
 
 const caps = Object.fromEntries(['input', 'mouse', 'lock', 'overlay', 'notification', 'tray', 'launchAtLogin'].map(key => [key, { state: 'available', reason: '' }])) as unknown as Capabilities;
 const display = { id: 'primary', label: 'Primary', primary: true, bounds: { x: 0, y: 0, width: 1920, height: 1080 }, scaleFactor: 1 };
@@ -11,7 +11,7 @@ function harness(settings = defaultSettings()) {
   engine.acceptSample(sample(seq++, now));
   return { engine, advance(ms: number, changes: Partial<PlatformSample> = {}) { now += ms; return engine.acceptSample(sample(seq++, now, changes)); }, run(seconds: number, changes: Partial<PlatformSample> = {}) { let result = engine.getSnapshot(); for (let i = 0; i < seconds; i++) result = this.advance(1000, changes).snapshot; return result; }, get now() { return now; } };
 }
-const minuteSettings = (mode: 'active' | 'fixed' = 'active'): SettingsV1 => { const s = defaultSettings(); s.timer.intervalMinutes = 1; s.timer.mode = mode; return s; };
+const minuteSettings = (mode: 'active' | 'fixed' = 'active'): SettingsV2 => { const s = defaultSettings(); s.timer.intervalMinutes = 1; s.timer.mode = mode; return s; };
 
 describe('TimerEngine activity and temporal boundaries', () => {
   it('defaults to documented conservative startup with no effects until capability observations', () => {
@@ -29,20 +29,20 @@ describe('TimerEngine activity and temporal boundaries', () => {
     expect(result.snapshot.remainingMs).toBe(60_000);
     expect(result.effects).toEqual([]);
   });
-  it('integrates fractional activity-window intersection instead of crediting a whole delayed tick', () => {
-    const s = minuteSettings(); s.timer.activeWindowSeconds = 5;
-    const h = harness(s);
-    h.advance(4000, { selectedSourceIdleMs: 4000 });
-    const result = h.advance(4000, { selectedSourceIdleMs: 8000 });
-    expect(result.snapshot.elapsedActiveMs).toBe(5000);
+  it('integrates fractional intersection at the fixed 60-second activity boundary', () => {
+    const h = harness();
+    for (let idle = 4000; idle <= 56_000; idle += 4000) h.advance(4000, { combinedIdleMs: idle });
+    h.advance(4000, { combinedIdleMs: 60_000 });
+    const result = h.advance(4000, { combinedIdleMs: 64_000 });
+    expect(result.snapshot.elapsedActiveMs).toBe(60_000);
     expect(result.snapshot.status).toBe('short_idle');
   });
   it('credits the union when new input lands inside a sampling interval', () => {
-    const s = minuteSettings(); s.timer.activeWindowSeconds = 5;
-    const h = harness(s);
-    h.advance(5000, { selectedSourceIdleMs: 5000 });
-    const result = h.advance(4000, { selectedSourceIdleMs: 1000 });
-    expect(result.snapshot.elapsedActiveMs).toBe(6000);
+    const h = harness();
+    for (let idle = 5000; idle <= 60_000; idle += 5000) h.advance(5000, { combinedIdleMs: idle });
+    h.advance(4000, { combinedIdleMs: 64_000 });
+    const result = h.advance(4000, { combinedIdleMs: 1000 });
+    expect(result.snapshot.elapsedActiveMs).toBe(61_000);
   });
   it('produces exactly one reminder at the active threshold and ignores duplicate observations', () => {
     const h = harness(minuteSettings());
@@ -73,21 +73,11 @@ describe('TimerEngine activity and temporal boundaries', () => {
     h.engine.resume(); h.advance(1000);
     expect(h.run(29 * 60).currentReminderId).toBeNull();
   });
-  it('mouse-only activity does not mistake keyboard use for long absence', () => {
-    const s = minuteSettings(); s.timer.activitySource = 'mouse'; s.timer.longIdleMinutes = 1; s.timer.activeWindowSeconds = 5;
-    const h = harness(s);
+  it('uses either keyboard or mouse through combined input regardless of source-specific age', () => {
+    const h = harness();
     for (let i = 1; i <= 120; i++) h.advance(1000, { combinedIdleMs: 0, selectedSourceIdleMs: i * 1000 });
-    expect(h.engine.getSnapshot().elapsedActiveMs).toBe(5000);
-    expect(h.engine.getSnapshot().status).toBe('short_idle');
-  });
-  it('switching activity source cannot credit the previous combined-input observation as mouse activity', () => {
-    const h = harness(); h.run(10);
-    const s = defaultSettings(); s.timer.activitySource = 'mouse';
-    h.engine.updateSettings(s, 1);
-    expect(h.advance(1000, { combinedIdleMs: 0, selectedSourceIdleMs: 100_000 }).snapshot.elapsedActiveMs).toBe(0);
-    expect(h.advance(1000, { combinedIdleMs: 0, selectedSourceIdleMs: 101_000 }).snapshot.elapsedActiveMs).toBe(0);
-    expect(h.advance(1000, { selectedSourceIdleMs: 0 }).snapshot.elapsedActiveMs).toBe(0);
-    expect(h.advance(1000).snapshot.elapsedActiveMs).toBe(1000);
+    expect(h.engine.getSnapshot().elapsedActiveMs).toBe(120_000);
+    expect(h.engine.getSnapshot().status).toBe('counting');
   });
   it('fixed mode triggers during short idle, skips suppressed beats and does not replay missed periods', () => {
     const h = harness(minuteSettings('fixed'));
@@ -193,30 +183,18 @@ describe('TimerEngine unique lifecycle and shared suppression', () => {
     expect(h.engine.getSnapshot().restConfirmedCount).toBe(1);
     expect(h.engine.getSnapshot().latestReminderResult?.channels[0]?.success).toBe(true);
   });
-  it('snooze preserves accumulated progress, executes once and cancellation consumes the cycle', () => {
-    const s = minuteSettings(); s.reminder.visual = 'mask'; s.reminder.snoozeMinutes = 1;
+  it.each(['acknowledge', 'skip'] as const)('%s starts a full normal cycle and never reschedules the previous reminder', action => {
+    const s = minuteSettings(); s.reminder.visual = 'mask';
     const h = harness(s); h.run(30);
     const event = h.engine.remindNow().effects[0]; if (event.type !== 'present') throw new Error();
-    expect(h.engine.resolveReminder(event.reminder.id, event.reminder.generation, 'snooze').snapshot.elapsedActiveMs).toBe(30_000);
+    const resolved = h.engine.resolveReminder(event.reminder.id, event.reminder.generation, action);
+    expect(resolved.snapshot.elapsedActiveMs).toBe(0);
+    expect(resolved.snapshot.remainingMs).toBe(60_000);
+    expect(resolved.snapshot.restConfirmedCount).toBe(action === 'acknowledge' ? 1 : 0);
     expect(h.run(59).currentReminderId).toBeNull();
     const next = h.advance(1000).effects[0]; if (next.type !== 'present') throw new Error();
     expect(next.reminder.id).not.toBe(event.reminder.id);
-    h.engine.resolveReminder(next.reminder.id, next.reminder.generation, 'snooze');
-    h.engine.pause(null);
-    expect(h.engine.getSnapshot().snoozeRemainingMs).toBeNull();
-    expect(h.engine.getSnapshot().elapsedActiveMs).toBe(0);
-    h.engine.resume(); expect(h.advance(1000).effects).toEqual([]);
-  });
-  it('timer changes consume a snoozed cycle and start accumulating immediately without resetting twice', () => {
-    const s = minuteSettings(); s.reminder.visual = 'mask';
-    const h = harness(s); h.run(20);
-    const event = h.engine.remindNow().effects[0]; if (event.type !== 'present') throw new Error();
-    h.engine.resolveReminder(event.reminder.id, event.reminder.generation, 'snooze');
-    const next = structuredClone(s); next.timer.intervalMinutes = 2;
-    const changed = h.engine.updateSettings(next, 1);
-    expect(changed.snapshot.snoozeRemainingMs).toBeNull();
-    expect(changed.snapshot.remainingMs).toBe(120_000);
-    expect(h.advance(1000).snapshot.elapsedActiveMs).toBe(1000);
+    expect(h.engine.resolveReminder(event.reminder.id, event.reminder.generation, action).effects).toEqual([]);
   });
   it('new mask diagnostics publish one sequence and show partial failures while keeping the mask interactive', () => {
     const s = minuteSettings(); s.reminder.visual = 'mask'; s.reminder.soundEnabled = true;
@@ -279,10 +257,11 @@ describe('TimerEngine unique lifecycle and shared suppression', () => {
   it('system theme reacts immediately, manual override persists and switching back does not reset progress', () => {
     const h = harness(); h.run(10);
     expect(h.advance(1000, { systemTheme: 'dark' }).snapshot.theme).toBe('dark');
-    const s = defaultSettings(); s.appearance.theme = 'light'; s.appearance.reduceMotion = 'on';
+    const s = defaultSettings(); s.appearance.theme = 'light';
     const manual = h.engine.updateSettings(s, 1);
     expect(manual.snapshot.theme).toBe('light'); expect(manual.snapshot.elapsedActiveMs).toBe(11_000);
-    expect(manual.snapshot.reduceMotion).toBe(true);
+    expect(manual.snapshot.reduceMotion).toBe(false);
+    expect(h.advance(0, { reduceMotion: true, reduceTransparency: true }).snapshot).toMatchObject({ reduceMotion: true, reduceTransparency: true });
     expect(h.advance(1000, { systemTheme: 'dark' }).snapshot.theme).toBe('light');
     s.appearance.theme = 'system';
     expect(h.engine.updateSettings(s, 2).snapshot.theme).toBe('dark');
