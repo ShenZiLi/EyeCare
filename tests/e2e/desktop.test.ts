@@ -73,7 +73,7 @@ test('theme/countdown preferences save immediately, preserve pause, survive rest
 
 test('invalid drafts stay visible; saved configuration remains valid; minimum window fits', async () => {
   await page.getByRole('button', { name: '触发条件', exact: true }).click();
-  const input = page.getByRole('spinbutton', { name: /提醒间隔/ });
+  const input = page.getByRole('spinbutton', { name: /活跃提醒时间/ });
   await input.fill('0');
   await expect(page.getByRole('button', { name: '保存设置', exact: true })).toHaveCount(0);
   await expect(page.getByRole('alert').first()).toBeVisible();
@@ -251,9 +251,9 @@ test('all pages contain only eight core choices and no advanced or manual-save U
 
 test('core edits save immediately, preserve rapid inputs and survive restart', async () => {
   await page.getByRole('button', { name: '触发条件', exact: true }).click();
+  await page.getByRole('spinbutton', { name: /空闲清零时间/ }).fill('12');
   await page.getByRole('radio', { name: /固定周期/ }).check();
-  await page.getByRole('spinbutton', { name: /提醒间隔/ }).fill('41');
-  await page.getByRole('spinbutton', { name: /空闲清零时长/ }).fill('12');
+  await page.getByRole('spinbutton', { name: /间隔时间/ }).fill('41');
   await page.getByRole('button', { name: '提醒方式', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByRole('radio', { name: /确认蒙版/ }).check();
@@ -406,7 +406,7 @@ test('four compact pages fit both native window sizes and themes with all core a
           return { documentX: root.scrollWidth <= window.innerWidth + 1, documentY: root.scrollHeight <= window.innerHeight + 1, mainY: main.scrollHeight <= main.clientHeight + 1, hidden };
         }), { message: `${name} ${theme} ${width}x${height} must fit without clipped content` }).toEqual({ documentX: true, documentY: true, mainY: true, hidden: [] });
         if (name === '概览') await expect(page.getByRole('button', { name: '立即提醒', exact: true })).toBeVisible();
-        if (name === '触发条件') await expect(page.getByRole('spinbutton', { name: /空闲清零时长/ })).toBeVisible();
+        if (name === '触发条件') await expect(page.getByRole('spinbutton', { name: /空闲清零时间/ })).toBeVisible();
         if (name === '提醒方式') await expect(page.getByRole('button', { name: '预览效果', exact: true })).toBeVisible();
         if (name === '通用设置') await expect(page.getByRole('button', { name: '恢复默认', exact: true })).toBeVisible();
         const pageId = { '概览': 'overview', '触发条件': 'trigger', '提醒方式': 'reminder', '通用设置': 'general' }[name];
@@ -415,7 +415,7 @@ test('four compact pages fit both native window sizes and themes with all core a
     }
   }
   await page.getByRole('button', { name: '触发条件', exact: true }).click();
-  const input = page.getByRole('spinbutton', { name: /提醒间隔/ });
+  const input = page.getByRole('spinbutton', { name: /活跃提醒时间/ });
   await input.fill('');
   await expect(input).toHaveValue('');
   await expect(page.getByRole('alert').first()).toBeVisible();
