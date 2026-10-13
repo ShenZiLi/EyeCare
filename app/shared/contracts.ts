@@ -21,7 +21,7 @@ export interface SettingsV2 {
 export const PRODUCT_DEFAULTS = Object.freeze({
   activeWindowSeconds: 60, activitySource: 'combined' as const,
   soundId: 'gentle' as const, volumePercent: 50,
-  flashOpacityPercent: 20, flashColor: 'theme-derived',
+  flashOpacityPercent: 40, flashColor: 'theme-derived',
   fadeInMs: 600, holdMs: 800, fadeOutMs: 600,
   screenScope: 'all' as const, message: '该让眼睛休息一下了',
 });

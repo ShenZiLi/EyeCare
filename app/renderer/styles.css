@@ -16,7 +16,7 @@
   --error-surface: #FFF1F1;
   --shadow: 0 8px 32px rgba(24,55,44,.07);
   --veil: rgba(19,37,30,.60);
-  --flash-color: #A5BBAE;
+  --flash-color: #7FA593;
   --glow: rgba(128,188,161,.15);
   font-size: 14px;
   font-synthesis: none;
@@ -38,7 +38,7 @@
   --error-surface: #3B2328;
   --shadow: 0 8px 32px rgba(0,0,0,.18);
   --veil: rgba(5,12,9,.76);
-  --flash-color: #2D453A;
+  --flash-color: #4A7261;
   --glow: rgba(88,152,120,.08);
 }
 * { box-sizing: border-box; }
