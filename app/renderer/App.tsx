@@ -25,7 +25,6 @@ export function App({ tray = false }: { tray?: boolean }) {
   const [error, setError] = useState<AppError | null>(null);
   const [feedback, setFeedback] = useState('');
   const [busy, setBusy] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
   const previewActive = snapshot?.currentPreviewId !== null && snapshot?.currentPreviewId !== undefined;
 
@@ -43,7 +42,6 @@ export function App({ tray = false }: { tray?: boolean }) {
     return () => { alive = false; off(); };
   }, [editor]);
   const navigate = (next: Page) => { editor.flush(); setPage(next); setFeedback(''); setError(null); };
-  const closePreview = useCallback(() => setPreviewOpen(false), []);
   const closeRestore = useCallback(() => setRestoreOpen(false), []);
   const invoke = async <T,>(operation: () => Promise<Result<T>>, message = '') => {
     setBusy(true); setError(null); setFeedback('');
@@ -66,11 +64,10 @@ export function App({ tray = false }: { tray?: boolean }) {
       {page === 'reminder' && (previewActive ? <div className="feedback" role="status">预览正在呈现</div> : snapshot.latestPreviewResult && <div className="feedback" role="status">{snapshot.latestPreviewResult.outcome === 'failed' ? '预览失败' : '预览已结束'}</div>)}{snapshot.latestPreviewResult && <>{snapshot.latestPreviewResult.channels.filter(channel => !channel.success).map(channel => <Notice error key={channel.channel}>{channel.channel === 'sound' ? '声音' : '视觉'}预览失败：{channel.message}</Notice>)}</>}
       {page === 'overview' ? <><RuntimeDisplay snapshot={snapshot}/><RuntimeActions snapshot={snapshot} busy={busy} command={command}/>{resultErrors.map(result => <Notice error key={result.channel}>{result.channel === 'sound' ? '声音' : '视觉'}提醒失败：{result.message}</Notice>)}</> : <div className="settings-content instant-settings" onBlurCapture={() => editor.flush()}>
         {page === 'trigger' && <TriggerSettings draft={draft} setDraft={setDraft} snapshot={snapshot} errors={{ ...error?.fields, ...editing.fields }}/>}
-        {page === 'reminder' && <ReminderSettings draft={draft} setDraft={setDraft} snapshot={snapshot} errors={{ ...error?.fields, ...editing.fields }} onPreview={() => { setError(null); setPreviewOpen(true); }} previewActive={previewActive} cancelPreview={() => { void invoke(() => window.eyeCare.cancelPreview()); }} busy={busy}/>}
+        {page === 'reminder' && <ReminderSettings draft={draft} setDraft={setDraft} snapshot={snapshot} errors={{ ...error?.fields, ...editing.fields }} onPreview={() => { void invoke(() => window.eyeCare.preview({ ...snapshot.settings, reminder: draft.reminder })); }} previewActive={previewActive} cancelPreview={() => { void invoke(() => window.eyeCare.cancelPreview()); }} busy={busy}/>}
         {page === 'general' && <GeneralSettings draft={draft} setDraft={setDraft} snapshot={snapshot} errors={{ ...error?.fields, ...editing.fields }} busy={busy || editing.pending} restore={() => setRestoreOpen(true)}/>}
       </div>}
     </main>
-    {previewOpen && <Modal title="预览当前提醒效果" onClose={closePreview}><p>预览不影响计时；闪屏或蒙版会短暂覆盖全屏。</p>{error && <Notice error>{error.message}{error.fields && Object.entries(error.fields).map(([field, message]) => <p key={field}>{message}</p>)}</Notice>}<div className="modal-actions"><button onClick={closePreview}>取消</button><button className="primary" disabled={busy} onClick={() => { const settings = { ...snapshot.settings, reminder: draft.reminder }; void invoke(() => window.eyeCare.preview(settings)).then(success => { if (success) setPreviewOpen(false); }); }}>开始预览</button></div></Modal>}
     {restoreOpen && <Modal title="恢复默认设置" onClose={closeRestore}><p>恢复全部默认设置，立即生效。</p><div className="modal-actions"><button onClick={closeRestore}>取消</button><button className="primary" disabled={editing.pending} onClick={() => { editor.edit(defaultSettings(), true); editor.retry(); setRestoreOpen(false); }}><Icon icon={RotateCcw}/>确认恢复</button></div></Modal>}
   </div>;
 }

@@ -175,7 +175,6 @@ test('preview UI clears active state after flash and mask close without changing
   const beforeFlash = await snapshot();
   await page.getByRole('button', { name: '提醒方式', exact: true }).click();
   await page.getByRole('button', { name: '预览效果', exact: true }).click();
-  await page.getByRole('button', { name: '开始预览', exact: true }).click();
   await expect(page.getByRole('button', { name: '结束预览', exact: true })).toBeVisible();
   await expect.poll(async () => (await snapshot()).currentPreviewId).toBeNull();
   await expect(page.getByRole('button', { name: '结束预览', exact: true })).toHaveCount(0);
@@ -183,9 +182,8 @@ test('preview UI clears active state after flash and mask close without changing
   const before = await snapshot();
   expect(before.remainingMs!).toBeLessThan(beforeFlash.remainingMs!);
   await page.getByRole('radio', { name: /确认蒙版/ }).check();
-  await page.getByRole('button', { name: '预览效果', exact: true }).click();
   const newWindow = desktop.waitForEvent('window');
-  await page.getByRole('button', { name: '开始预览', exact: true }).click();
+  await page.getByRole('button', { name: '预览效果', exact: true }).click();
   const mask = await newWindow;
   await expect(mask.getByRole('button', { name: '知道了', exact: true })).toBeVisible();
   await mask.getByRole('button', { name: '知道了', exact: true }).click();
@@ -211,16 +209,12 @@ test('failed preview preparation reports failure and never leaves an active prev
   try {
     await page.getByRole('button', { name: '提醒方式', exact: true }).click();
     await page.getByRole('button', { name: '预览效果', exact: true }).click();
-    await page.getByRole('button', { name: '开始预览', exact: true }).click();
-    const dialog = page.getByRole('dialog', { name: '预览当前提醒效果', exact: true });
-    await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole('alert')).toContainText('提醒窗口创建失败');
+    await expect(page.getByText('提醒窗口创建失败', { exact: true })).toBeVisible();
     const state = await snapshot();
     expect(state.currentPreviewId).toBeNull();
     expect(state.latestPreviewResult?.outcome).toBe('failed');
     expect(state.currentReminderId).toBeNull();
     expect(state.restConfirmedCount).toBe(0);
-    await page.getByRole('button', { name: '关闭对话框', exact: true }).click();
     await expect(page.getByRole('button', { name: '结束预览', exact: true })).toHaveCount(0);
     await expect(page.getByText('预览失败', { exact: true })).toBeVisible();
     await expect(page.getByText('预览已启动', { exact: true })).toHaveCount(0);
