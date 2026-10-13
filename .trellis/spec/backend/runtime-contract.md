@@ -21,7 +21,7 @@ Main owns timer, native observations, persistence, OS startup and reminder ident
 | Bridge.preview | SettingsV2 | Result<preview ID> |
 | Bridge.resolveReminder | ID,generation,acknowledge or skip | Result<RuntimeSnapshot> |
 
-Remaining whitelist commands cover pause15/30/60/until-resumed,resume,remindNow,cancelPreview,getSnapshot/getOverlay,readiness/sound/finished reports,openSettings and quit. Sender exact URL/WebContents role/main-frame and payload validation remain mandatory. No arbitrary Node/shell/path/channel bridge is exposed.
+Remaining whitelist commands cover no-argument pause,resume,remindNow,cancelPreview,getSnapshot/getOverlay,readiness/sound/finished reports,openSettings and quit. Sender exact URL/WebContents role/main-frame and payload validation remain mandatory. No arbitrary Node/shell/path/channel bridge is exposed.
 
 ## 3. Data and persistence contracts
 

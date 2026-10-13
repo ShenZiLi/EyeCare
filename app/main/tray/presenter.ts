@@ -12,7 +12,7 @@ export class TrayPresenter {
     if (process.platform === 'darwin') image.setTemplateImage(true);
     return image;
   }
-  constructor(private readonly callbacks: { showMain: () => void; settings: () => void; pause: (minutes: 15 | 30 | 60 | null) => void; resume: () => void; remindNow: () => void; quit: () => void }) {}
+  constructor(private readonly callbacks: { showMain: () => void; settings: () => void; pause: () => void; resume: () => void; remindNow: () => void; quit: () => void }) {}
   create(): boolean {
     try {
       const image = this.standardIcon(nativeTheme.shouldUseDarkColors);
@@ -46,7 +46,7 @@ export class TrayPresenter {
       this.tray.setContextMenu(Menu.buildFromTemplate([
         { label: `EyeCare · ${state}`, enabled: false }, { type: 'separator' },
         { label: '打开概览', click: this.callbacks.showMain },
-        ...(snapshot.status === 'paused' ? [{ label: '恢复计时', click: this.callbacks.resume }] : [{ label: '暂停', submenu: [{ label: '15 分钟', click: () => this.callbacks.pause(15) }, { label: '30 分钟', click: () => this.callbacks.pause(30) }, { label: '60 分钟', click: () => this.callbacks.pause(60) }, { label: '直到手动恢复', click: () => this.callbacks.pause(null) }] }]),
+        snapshot.status === 'paused' ? { label: '恢复计时', click: this.callbacks.resume } : { label: '暂停', click: this.callbacks.pause },
         { label: '立即提醒', enabled: ['counting', 'short_idle'].includes(snapshot.status), click: this.callbacks.remindNow },
         { label: '设置', click: this.callbacks.settings }, { type: 'separator' }, { label: '退出 EyeCare', click: this.callbacks.quit },
       ]));

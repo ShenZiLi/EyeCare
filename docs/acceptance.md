@@ -82,3 +82,9 @@ Run both palettes over bright/dark/complex actual desktops and each supported sc
 ## Release blockers
 
 Additional macOS versions/Intel and Linux hosts, signing/notarization credentials, full physical native acceptance across required targets (including macOS/Windows lock/sleep/multi-display transitions), and long-run performance evidence are unavailable or unfinished. On 2026-10-10 the user chose “暂时没有，先完成本机可验证交付并保留跨平台验收项”. Mac ARM64 local evidence was added on 2026-10-12; preserve the full objective and keep the delivery task active until the remaining acceptance is proven.
+
+## 2026-10-13 紧凑页面与手动暂停跟进
+
+四页压缩留白、并排控件，保留亮暗模式和自动保存。概览间隔为20/30/40/自定义分钟，共用触发条件配置。暂停及托盘暂停只手动恢复，删除暂停期限和规则卡片；仅隐藏采样延迟提示，保留未知时段不计入活动的处理。
+
+最终改动定向46项后端测试、类型检查及相关lint通过，3项Electron用例通过，覆盖四页×双主题×880×620/640×520、间隔保存、自定义校验、手动恢复及提示删除。Mac打包完成。此前紧凑布局185项检查、17项GUI及旧打包16组合证据仅代表当时版本。用户要求停止校验，最终包实机矩阵、其他平台与大字体未新增验收。现有Windows/macOS原始实机记录保留。

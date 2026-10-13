@@ -57,7 +57,7 @@ export interface ReminderEvent { id: string; generation: number; kind: 'real' | 
 export interface ChannelResult { channel: 'visual' | 'sound'; success: boolean; message: string }
 export interface ReminderResult { id: string; outcome: 'automatic' | 'acknowledge' | 'skip' | 'cancelled' | 'failed'; channels: ChannelResult[] }
 export interface PreviewResult { id: string; outcome: ReminderResult['outcome']; channels: ChannelResult[] }
-export interface RuntimeSnapshot { settingsRevision: number; settings: SettingsV2; sequence: number; status: RuntimeStatus; statusReason: string; elapsedActiveMs: number; remainingMs: number | null; pauseRemainingMs: number | null; currentReminderId: string | null; currentPreviewId: string | null; latestPreviewResult: PreviewResult | null; theme: 'light' | 'dark'; reduceMotion: boolean; reduceTransparency: boolean; capabilities: Capabilities; displays: DisplayInfo[]; latestReminderResult: ReminderResult | null; restConfirmedCount: number; warnings: string[] }
+export interface RuntimeSnapshot { settingsRevision: number; settings: SettingsV2; sequence: number; status: RuntimeStatus; statusReason: string; elapsedActiveMs: number; remainingMs: number | null; currentReminderId: string | null; currentPreviewId: string | null; latestPreviewResult: PreviewResult | null; theme: 'light' | 'dark'; reduceMotion: boolean; reduceTransparency: boolean; capabilities: Capabilities; displays: DisplayInfo[]; latestReminderResult: ReminderResult | null; restConfirmedCount: number; warnings: string[] }
 export type EngineEffect = { type: 'present'; reminder: ReminderEvent } | { type: 'cancel'; id: string; generation: number } | { type: 'rest_confirmed'; id: string };
 export interface EngineUpdate { snapshot: RuntimeSnapshot; effects: EngineEffect[] }
 export interface AppError { code: string; message: string; fields?: Record<string, string>; currentRevision?: number }
@@ -67,7 +67,7 @@ export interface EyeCareBridge {
   getSnapshot(): Promise<RuntimeSnapshot>;
   subscribeSnapshot(listener: (snapshot: RuntimeSnapshot) => void): () => void;
   saveSettings(expectedRevision: number, settings: SettingsV2): Promise<Result<RuntimeSnapshot>>;
-  pause(durationMinutes: 15 | 30 | 60 | null): Promise<Result<RuntimeSnapshot>>;
+  pause(): Promise<Result<RuntimeSnapshot>>;
   resume(): Promise<Result<RuntimeSnapshot>>;
   remindNow(): Promise<Result<RuntimeSnapshot>>;
   resolveReminder(id: string, generation: number, action: ReminderAction): Promise<Result<RuntimeSnapshot>>;

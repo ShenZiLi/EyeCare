@@ -95,7 +95,7 @@ function registerIPC() {
           if (!role || !roles.includes(role)) throw new CommandError({ code: 'UNAUTHORIZED', message: '此窗口无权执行操作' });
           const source = event.senderFrame?.url ?? '';
           if (!isTrustedSurface(event.sender.id, source)) throw new CommandError({ code: 'UNAUTHORIZED', message: '不受信任的页面来源' });
-          if (['snapshot', 'resume', 'remind-now', 'cancel-preview', 'overlay', 'open-settings', 'settings-requested', 'quit'].includes(channel)) emptyPayload(value);
+          if (['snapshot', 'pause', 'resume', 'remind-now', 'cancel-preview', 'overlay', 'open-settings', 'settings-requested', 'quit'].includes(channel)) emptyPayload(value);
           return await callback(event, value);
         } catch (error) {
           if (raw) throw error;
@@ -120,10 +120,8 @@ function registerIPC() {
     if (!result.ok) return result;
     return apply(engine.updateSettings(result.value.settings, result.value.revision));
   });
-  handle('pause', ['main'], (_event, value) => {
-    const fields = payload(value, ['durationMinutes']);
-    if (![15, 30, 60, null].includes(fields.durationMinutes as never)) throw new CommandError({ code: 'INVALID_COMMAND', message: '暂停时长无效' });
-    sample(); coordinator.cancel(); return apply(engine.pause(fields.durationMinutes as 15 | 30 | 60 | null));
+  handle('pause', ['main'], () => {
+    sample(); coordinator.cancel(); return apply(engine.pause());
   });
   handle('resume', ['main'], () => { sample(); return apply(engine.resume()); });
   handle('remind-now', ['main'], () => { checkEligible(); return apply(engine.remindNow()); });
@@ -196,7 +194,7 @@ else {
     }, () => { void showMain(); }, (id, result) => {
       currentPreviewId = id; latestPreviewResult = result; previewSequence++; publish();
     });
-    tray = new TrayPresenter({ showMain: () => { void showMain(); }, settings: () => { void showMain(true); }, pause: minutes => { sample(); coordinator.cancel(); publish(engine.pause(minutes)); }, resume: () => { sample(); publish(engine.resume()); }, remindNow: () => { try { checkEligible(); publish(engine.remindNow()); } catch { publish(); } }, quit });
+    tray = new TrayPresenter({ showMain: () => { void showMain(); }, settings: () => { void showMain(true); }, pause: () => { sample(); coordinator.cancel(); publish(engine.pause()); }, resume: () => { sample(); publish(engine.resume()); }, remindNow: () => { try { checkEligible(); publish(engine.remindNow()); } catch { publish(); } }, quit });
     tray.create(); sample();
     registerIPC();
     adapter.subscribe(sample);

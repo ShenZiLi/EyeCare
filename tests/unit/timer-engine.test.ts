@@ -66,7 +66,7 @@ describe('TimerEngine activity and temporal boundaries', () => {
   it('clears 25 minutes of progress at the ten-minute long-idle threshold even while manually paused', () => {
     const h = harness();
     expect(h.run(25 * 60).elapsedActiveMs).toBe(25 * 60_000);
-    h.engine.pause(null);
+    h.engine.pause();
     for (let idle = 1000; idle <= 599_000; idle += 1000) h.advance(1000, { combinedIdleMs: idle, selectedSourceIdleMs: idle });
     expect(h.engine.getSnapshot().elapsedActiveMs).toBe(25 * 60_000);
     expect(h.advance(1000, { combinedIdleMs: 600_000, selectedSourceIdleMs: 600_000 }).snapshot.elapsedActiveMs).toBe(0);
@@ -134,15 +134,46 @@ describe('TimerEngine activity and temporal boundaries', () => {
     expect(h.advance(1000).snapshot.elapsedActiveMs).toBe(0);
     expect(h.advance(1000).snapshot.elapsedActiveMs).toBe(1000);
   });
-  it('timed pause resumes only at its deadline and contributes only the observed portion after expiry', () => {
-    const h = harness(); h.run(10); h.engine.pause(15);
-    h.advance(899_000);
-    expect(h.engine.getSnapshot().status).toBe('paused');
-    expect(h.advance(2000).snapshot.elapsedActiveMs).toBe(11_000);
-    expect(h.engine.getSnapshot().status).toBe('counting');
+  it.each(['active', 'fixed'] as const)('manual pause remains paused beyond an hour in %s mode until explicit resume', mode => {
+    const h = harness(minuteSettings(mode)); h.run(10);
+    const paused = h.engine.pause();
+    expect(paused.snapshot.status).toBe('paused');
+    expect(paused.snapshot).not.toHaveProperty('pauseRemainingMs');
+    expect(h.run(61 * 60).status).toBe('paused');
+    expect(h.engine.getSnapshot().elapsedActiveMs).toBe(mode === 'active' ? 10_000 : 0);
+    expect(h.engine.remindNow().effects).toEqual([]);
+    const resumed = h.engine.resume();
+    expect(resumed.snapshot.status).toBe('counting');
+    expect(h.advance(1000).snapshot.elapsedActiveMs).toBe(mode === 'active' ? 11_000 : 0);
+    if (mode === 'fixed') expect(resumed.snapshot.remainingMs).toBe(60_000);
+  });
+  it('short lock preserves manually paused progress and long idle clears it without resuming', () => {
+    const h = harness(); h.run(20); h.engine.pause();
+    h.advance(1000, { lockState: 'locked' }); h.advance(4000, { lockState: 'locked' });
+    const unlocked = h.advance(1000);
+    expect(unlocked.snapshot.status).toBe('paused');
+    expect(unlocked.snapshot.elapsedActiveMs).toBe(20_000);
+    const idle = h.advance(1000, { combinedIdleMs: 600_000 });
+    expect(idle.snapshot.status).toBe('paused');
+    expect(idle.snapshot.elapsedActiveMs).toBe(0);
+    expect(h.advance(1000).snapshot.status).toBe('paused');
+    h.engine.resume();
+    expect(h.advance(1000).snapshot.elapsedActiveMs).toBe(1000);
+  });
+  it('manual pause cancels a live reminder once and never revives it on explicit resume', () => {
+    const h = harness(minuteSettings());
+    const event = h.engine.remindNow().effects[0]; if (event.type !== 'present') throw new Error();
+    expect(h.engine.pause().effects).toEqual([{ type: 'cancel', id: event.reminder.id, generation: event.reminder.generation }]);
+    expect(h.engine.pause().effects).toEqual([]);
+    h.run(61 * 60);
+    expect(h.engine.getSnapshot().currentReminderId).toBeNull();
+    expect(h.engine.getSnapshot().restConfirmedCount).toBe(0);
+    expect(h.engine.resume().effects).toEqual([]);
+    expect(h.advance(1000).effects).toEqual([]);
+    expect(h.engine.settleReminder(event.reminder.id, event.reminder.generation, [{ channel: 'visual', success: true, message: '' }]).effects).toEqual([]);
   });
   it('lowering the long-idle threshold applies the new value immediately while paused', () => {
-    const h = harness(); h.run(10); h.engine.pause(null);
+    const h = harness(); h.run(10); h.engine.pause();
     h.advance(1000, { combinedIdleMs: 120_000, selectedSourceIdleMs: 120_000 });
     expect(h.engine.getSnapshot().elapsedActiveMs).toBe(10_000);
     const s = defaultSettings(); s.timer.longIdleMinutes = 2;
@@ -156,7 +187,7 @@ describe('TimerEngine unique lifecycle and shared suppression', () => {
     for (const mode of ['active', 'fixed'] as const) {
       const s = minuteSettings(mode); s.reminder.visual = visual; s.reminder.soundEnabled = true;
       const h = harness(s);
-      h.engine.pause(null); expect(h.engine.remindNow().effects).toEqual([]); h.engine.resume();
+      h.engine.pause(); expect(h.engine.remindNow().effects).toEqual([]); h.engine.resume();
       h.advance(1000, { lockState: 'locked' }); expect(h.engine.remindNow().effects).toEqual([]);
       h.advance(1000, { combinedIdleMs: 600_000 }); expect(h.engine.remindNow().effects).toEqual([]);
     }

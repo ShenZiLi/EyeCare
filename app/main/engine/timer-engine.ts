@@ -14,7 +14,7 @@ export class TimerEngine {
   private sequence = 0;
   private elapsed = 0;
   private deadline: number;
-  private pauseUntil: number | null | undefined;
+  private manuallyPaused = false;
   private reminder: ReminderEvent | null = null;
   private reminderChannels: ChannelResult[] = [];
   private generation = 0;
@@ -42,7 +42,7 @@ export class TimerEngine {
     return null;
   }
   private suppressed(sample = this.sample): boolean {
-    return !sample || sample.sleeping || sample.lockState !== 'unlocked' || !!this.fault(sample) || this.pauseUntil !== undefined || this.longIdle(sample);
+    return !sample || sample.sleeping || sample.lockState !== 'unlocked' || !!this.fault(sample) || this.manuallyPaused || this.longIdle(sample);
   }
   private status(): [RuntimeStatus, string] {
     const s = this.sample;
@@ -51,7 +51,7 @@ export class TimerEngine {
     if (s.lockState === 'locked') return ['locked', '屏幕已锁定'];
     const fault = this.fault();
     if (fault) return ['capability_error', fault];
-    if (this.pauseUntil !== undefined) return ['paused', '已暂停提醒'];
+    if (this.manuallyPaused) return ['paused', '已暂停提醒'];
     if (this.longIdle()) return ['long_idle', '长时间没有输入，累计已清零'];
     if (this.reminder) return ['reminding', this.pendingTimerReset ? '当前提醒保持原配置，新计时参数将在下一周期生效' : '等待提醒结束'];
     if (this.cycleSettings.timer.mode === 'active' && (s.combinedIdleMs ?? Infinity) > PRODUCT_DEFAULTS.activeWindowSeconds * 1000) return ['short_idle', '空闲暂停累计'];
@@ -64,7 +64,6 @@ export class TimerEngine {
       settingsRevision: this.revision, settings: this.settings, sequence: this.sequence, status, statusReason,
       elapsedActiveMs: this.elapsed,
       remainingMs: this.cycleSettings.timer.mode === 'active' ? Math.max(0, this.interval() - this.elapsed) : Math.max(0, this.deadline - this.now),
-      pauseRemainingMs: typeof this.pauseUntil === 'number' ? Math.max(0, this.pauseUntil - this.now) : null,
       currentReminderId: this.reminder?.id ?? null,
       currentPreviewId: null, latestPreviewResult: null,
       theme: this.settings.appearance.theme === 'system' ? s?.systemTheme ?? 'light' : this.settings.appearance.theme,
@@ -116,7 +115,6 @@ export class TimerEngine {
     const from = this.now;
     const delta = input.nowMs - from;
     const previouslySuppressed = this.suppressed();
-    const previousPause = this.pauseUntil;
     const wasOccupied = this.reminder !== null;
     this.now = input.nowMs;
     this.sample = structuredClone(input);
@@ -127,10 +125,6 @@ export class TimerEngine {
       this.elapsed = 0;
       this.warn('连续时钟异常，无法确认离开时长；累计已保守清零');
     }
-    if (typeof this.pauseUntil === 'number' && this.now >= this.pauseUntil) {
-      this.pauseUntil = undefined;
-      if (this.cycleSettings.timer.mode === 'fixed') this.deadline = this.now + this.interval();
-    }
     const absent = input.sleeping || input.lockState !== 'unlocked' || !!this.fault();
     if (absent && this.absenceSince === null) this.absenceSince = this.now;
     if (this.absenceSince !== null && this.now - this.absenceSince >= this.cycleSettings.timer.longIdleMinutes * 60_000) this.elapsed = 0;
@@ -140,10 +134,9 @@ export class TimerEngine {
     if (blocked) this.cancel(effects);
     if (!blocked && this.restartOnRecovery) { this.reset(); this.restartOnRecovery = false; }
     if (delta > 5000 && previous) this.warn('系统采样延迟超过 5 秒，未知时段未计入活动');
-    const pauseExpired = typeof previousPause === 'number' && previousPause <= this.now;
-    const canIntegrate = previous && !blocked && !wasOccupied && !this.reminder && delta <= 5000 && (!previouslySuppressed || (pauseExpired && !previous.sleeping && previous.lockState === 'unlocked' && !this.fault(previous) && !this.longIdle(previous)));
+    const canIntegrate = previous && !blocked && !previouslySuppressed && !wasOccupied && !this.reminder && delta <= 5000;
     if (canIntegrate && this.cycleSettings.timer.mode === 'active' && validIdle(previous.combinedIdleMs) && validIdle(input.combinedIdleMs)) {
-      const start = pauseExpired ? Math.max(from, previousPause as number) : from;
+      const start = from;
       const window = PRODUCT_DEFAULTS.activeWindowSeconds * 1000;
       // Integrate the union of both observed activity windows against this sampling interval.
       const oldInput = from - previous.combinedIdleMs;
@@ -162,18 +155,17 @@ export class TimerEngine {
     } else if (this.cycleSettings.timer.mode === 'active' && this.elapsed >= this.interval() && !blocked && !this.reminder) this.present(effects);
     return this.update(effects);
   }
-  pause(minutes: 15 | 30 | 60 | null, nowMs?: number): EngineUpdate {
-    this.time(nowMs);
+  pause(): EngineUpdate {
     const effects: EngineEffect[] = [];
-    this.pauseUntil = minutes === null ? null : this.now + minutes * 60_000;
+    this.manuallyPaused = true;
     this.cancel(effects);
     this.sequence++;
     return this.update(effects);
   }
   resume(nowMs?: number): EngineUpdate {
     this.time(nowMs);
-    if (this.pauseUntil === undefined) return this.update();
-    this.pauseUntil = undefined;
+    if (!this.manuallyPaused) return this.update();
+    this.manuallyPaused = false;
     if (this.cycleSettings.timer.mode === 'fixed') this.deadline = this.now + this.interval();
     this.sequence++;
     return this.update();

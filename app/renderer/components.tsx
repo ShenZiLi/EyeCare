@@ -2,9 +2,9 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { AlertCircle, X, type LucideIcon } from 'lucide-react';
 import type { RuntimeSnapshot } from '../shared/contracts';
 
-export function Icon({ icon: Svg, size = 20 }: { icon: LucideIcon; size?: number }) { return <Svg size={size} aria-hidden="true" strokeWidth={1.8}/>; }
+export function Icon({ icon: Svg, size = 20 }: { icon: LucideIcon; size?: number }) { return <Svg size={size} aria-hidden="true" strokeWidth={2}/>; }
 export function Notice({ children, error = false }: { children: ReactNode; error?: boolean }) { return <div className={`notice ${error ? 'error' : ''}`} role={error ? 'alert' : undefined}><Icon icon={AlertCircle}/><div>{children}</div></div>; }
-export function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) { return <section className="section"><div className="section-heading"><h2>{title}</h2>{description && <p>{description}</p>}</div>{children}</section>; }
+export function Section({ title, description, actions, children }: { title: string; description?: string; actions?: ReactNode; children: ReactNode }) { return <section className="section"><div className="section-heading"><div><h2>{title}</h2>{description && <p>{description}</p>}</div>{actions}</div>{children}</section>; }
 export function Field({ label, hint, error, children }: { label: string; hint?: string; error?: string; children: ReactNode }) { return <div className="field"><label className="field-label">{label}{children}</label>{hint && <p className="hint">{hint}</p>}{error && <p className="field-error" role="alert">{error}</p>}</div>; }
 export function Toggle({ label, hint, checked, disabled, onChange }: { label: string; hint?: string; checked: boolean; disabled?: boolean; onChange: (value: boolean) => void }) { return <label className={`toggle-row ${disabled ? 'disabled' : ''}`}><span><span className="toggle-label">{label}</span>{hint && <span className="hint">{hint}</span>}</span><input type="checkbox" role="switch" checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)}/></label>; }
 export function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
@@ -25,4 +25,13 @@ export function Modal({ title, children, onClose }: { title: string; children: R
   }, [onClose]);
   return <div className="modal-backdrop"><div className="modal-panel" ref={panel} role="dialog" aria-modal="true" aria-labelledby="modal-title"><div className="modal-heading"><h2 id="modal-title">{title}</h2><button className="icon-button" aria-label="关闭对话框" onClick={onClose}><Icon icon={X}/></button></div>{children}</div></div>;
 }
-export function applyAppearance(snapshot: Pick<RuntimeSnapshot, 'theme' | 'reduceMotion' | 'reduceTransparency'>) { document.documentElement.dataset.theme = snapshot.theme; document.documentElement.dataset.motion = snapshot.reduceMotion ? 'reduced' : 'full'; document.documentElement.dataset.transparency = snapshot.reduceTransparency ? 'reduced' : 'full'; }
+export function applyAppearance(snapshot: Pick<RuntimeSnapshot, 'theme' | 'reduceMotion' | 'reduceTransparency'>) {
+  const root = document.documentElement;
+  const themeChanged = root.dataset.theme !== undefined && root.dataset.theme !== snapshot.theme;
+  const suppression = themeChanged ? document.createElement('style') : null;
+  if (suppression) { suppression.dataset.themeTransition = 'suppressed'; suppression.textContent = '*,*::before,*::after{transition:none !important}'; document.head.append(suppression); }
+  root.dataset.theme = snapshot.theme;
+  root.dataset.motion = snapshot.reduceMotion ? 'reduced' : 'full';
+  root.dataset.transparency = snapshot.reduceTransparency ? 'reduced' : 'full';
+  if (suppression) { void document.body.offsetHeight; requestAnimationFrame(() => requestAnimationFrame(() => suppression.remove())); }
+}

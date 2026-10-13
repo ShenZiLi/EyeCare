@@ -379,3 +379,167 @@ test('startup error leaves the old switch visible and retries without changing O
     });
   }
 });
+
+test('four compact pages fit both native window sizes and themes with all core actions visible', async () => {
+  const initial = await snapshot();
+  const settings = structuredClone(initial.settings);
+  settings.timer = { mode: 'fixed', intervalMinutes: 240, longIdleMinutes: 120 };
+  expect((await save(initial.settingsRevision, settings)).ok).toBe(true);
+  const previewWindow = desktop.waitForEvent('window');
+  const previewSettings: SettingsV2 = { ...settings, reminder: { visual: 'mask', soundEnabled: false } };
+  expect((await page.evaluate(settings => window.eyeCare.preview(settings), previewSettings)).ok).toBe(true);
+  const mask = await previewWindow;
+  await mask.getByRole('button', { name: '知道了', exact: true }).click();
+  await expect.poll(async () => (await snapshot()).currentPreviewId).toBeNull();
+  for (const theme of ['light', 'dark'] as const) {
+    await page.getByRole('button', { name: '通用设置', exact: true }).click();
+    await page.getByRole('button', { name: theme === 'light' ? '亮色' : '暗色', exact: true }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+    for (const [width, height] of [[880, 620], [640, 520]]) {
+      await desktop.evaluate(({ BrowserWindow }, { width, height }) => {
+        BrowserWindow.getAllWindows().find(window => window.webContents.getURL().includes('surface=main'))!.setSize(width, height);
+      }, { width, height });
+      for (const name of ['概览', '触发条件', '提醒方式', '通用设置'] as const) {
+        await page.getByRole('button', { name, exact: true }).click();
+        await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+        await expect.poll(() => page.evaluate(() => {
+          const main = document.querySelector<HTMLElement>('.main-content')!;
+          const root = document.documentElement;
+          const hidden = [...main.querySelectorAll<HTMLElement>('button,input,select,label,.quiet-note,.hint')].filter(element => {
+            if (!element.getClientRects().length) return false;
+            const bounds = element.getBoundingClientRect();
+            return bounds.top < -1 || bounds.bottom > window.innerHeight + 1 || bounds.left < -1 || bounds.right > window.innerWidth + 1;
+          }).map(element => element.textContent?.trim() || element.getAttribute('aria-label') || element.tagName);
+          return { documentX: root.scrollWidth <= window.innerWidth + 1, documentY: root.scrollHeight <= window.innerHeight + 1, mainY: main.scrollHeight <= main.clientHeight + 1, hidden };
+        }), { message: `${name} ${theme} ${width}x${height} must fit without clipped content` }).toEqual({ documentX: true, documentY: true, mainY: true, hidden: [] });
+        if (name === '概览') await expect(page.getByRole('button', { name: '立即提醒', exact: true })).toBeVisible();
+        if (name === '触发条件') await expect(page.getByRole('spinbutton', { name: /空闲清零时长/ })).toBeVisible();
+        if (name === '提醒方式') await expect(page.getByRole('button', { name: '预览效果', exact: true })).toBeVisible();
+        if (name === '通用设置') await expect(page.getByRole('button', { name: '恢复默认', exact: true })).toBeVisible();
+        const pageId = { '概览': 'overview', '触发条件': 'trigger', '提醒方式': 'reminder', '通用设置': 'general' }[name];
+        if (process.platform === 'darwin') await page.screenshot({ path: screenshot(`compact-${pageId}-${theme}-${width}`), animations: 'disabled' });
+      }
+    }
+  }
+  await page.getByRole('button', { name: '触发条件', exact: true }).click();
+  const input = page.getByRole('spinbutton', { name: /提醒间隔/ });
+  await input.fill('');
+  await expect(input).toHaveValue('');
+  await expect(page.getByRole('alert').first()).toBeVisible();
+  await input.focus();
+  expect(await input.evaluate(element => { const bounds = element.getBoundingClientRect(); return bounds.top >= 0 && bounds.bottom <= window.innerHeight; })).toBe(true);
+  await input.fill('240');
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('compact controls retain focus, exact press feedback and instant theme swaps at slow playback', async () => {
+  await page.getByRole('button', { name: '通用设置', exact: true }).click();
+  await page.getByRole('button', { name: '亮色', exact: true }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  const session = await page.context().newCDPSession(page);
+  await session.send('Animation.enable');
+  await session.send('Animation.setPlaybackRate', { playbackRate: .1 });
+  try {
+    const button = page.getByRole('button', { name: '暗色', exact: true });
+    await button.focus();
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Shift+Tab');
+    expect(await button.evaluate(element => getComputedStyle(element).outlineStyle)).not.toBe('none');
+    await button.hover();
+    const bounds = (await button.boundingBox())!;
+    await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    await page.mouse.down();
+    await expect.poll(() => button.evaluate(element => {
+      const style = getComputedStyle(element);
+      return style.scale !== 'none' ? Number(style.scale) : new DOMMatrixReadOnly(style.transform).a;
+    })).toBeCloseTo(.96, 2);
+    await page.mouse.up();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    expect(await page.evaluate(() => document.getAnimations().filter(animation => animation instanceof CSSTransition && /color|background|border|shadow/.test(animation.transitionProperty)).length)).toBe(0);
+    const still = page.getByRole('button', { name: '亮色', exact: true });
+    const stillBounds = (await still.boundingBox())!;
+    await page.mouse.move(stillBounds.x + stillBounds.width / 2, stillBounds.y + stillBounds.height / 2);
+    await page.mouse.down();
+    expect(await still.evaluate(element => {
+      // Inspect the static rule atomically, before a native snapshot can restore
+      // the host's real motion preference. This never changes OS preferences.
+      document.documentElement.dataset.motion = 'reduced';
+      const style = getComputedStyle(element);
+      return style.scale !== 'none' ? Number(style.scale) : new DOMMatrixReadOnly(style.transform).a;
+    })).toBe(1);
+    await page.mouse.up();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.mouse.move(stillBounds.x + stillBounds.width / 2, stillBounds.y + stillBounds.height / 2);
+    await page.mouse.down();
+    expect(await still.evaluate(element => {
+      document.documentElement.dataset.motion = 'full';
+      const style = getComputedStyle(element);
+      return style.scale !== 'none' ? Number(style.scale) : new DOMMatrixReadOnly(style.transform).a;
+    })).toBe(1);
+    await page.mouse.up();
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    const navigation = page.getByRole('button', { name: '通用设置', exact: true });
+    const navigationBounds = (await navigation.boundingBox())!;
+    await page.mouse.move(navigationBounds.x + navigationBounds.width / 2, navigationBounds.y + navigationBounds.height / 2);
+    await page.mouse.down();
+    expect(await navigation.evaluate(element => {
+      const style = getComputedStyle(element);
+      return style.scale !== 'none' ? Number(style.scale) : new DOMMatrixReadOnly(style.transform).a;
+    })).toBe(1);
+    await page.mouse.up();
+  } finally {
+    await page.mouse.up();
+    await page.emulateMedia({ reducedMotion: null });
+    await session.send('Animation.setPlaybackRate', { playbackRate: 1 });
+    await session.detach();
+  }
+});
+
+test('overview reminder interval presets and custom minutes autosave while pause requires explicit resume', async () => {
+  await expect(page.getByRole('heading', { name: '当前提醒规则', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: '暂停时长', exact: true })).toHaveCount(0);
+  await expect(page.getByText('直到手动恢复', { exact: true })).toHaveCount(0);
+  const interval = page.getByRole('combobox', { name: '提醒间隔', exact: true });
+  await expect(interval.locator('option')).toHaveText(['20 分钟', '30 分钟', '40 分钟', '自定义分钟']);
+  for (const value of [20, 30, 40]) {
+    await interval.selectOption(String(value));
+    await expect.poll(async () => (await snapshot()).settings.timer.intervalMinutes).toBe(value);
+  }
+  await interval.selectOption('custom');
+  const custom = page.getByRole('spinbutton', { name: '自定义提醒间隔', exact: true });
+  await custom.fill('0');
+  await expect(custom).toHaveAttribute('aria-invalid', 'true');
+  expect((await snapshot()).settings.timer.intervalMinutes).toBe(40);
+  await custom.fill('37');
+  await custom.press('Tab');
+  await expect.poll(async () => (await snapshot()).settings.timer.intervalMinutes).toBe(37);
+  const persisted = JSON.parse(await readFile(path.join(dataDirectory, 'settings.json'), 'utf8'));
+  expect(persisted.settings.timer.intervalMinutes).toBe(37);
+  await page.getByRole('button', { name: '触发条件', exact: true }).click();
+  await expect(page.getByRole('spinbutton', { name: /提醒间隔/ })).toHaveValue('37');
+  await page.getByRole('button', { name: '概览', exact: true }).click();
+  await expect(interval).toHaveValue('custom');
+  await expect(custom).toHaveValue('37');
+  await page.getByRole('button', { name: '暂停', exact: true }).click();
+  const paused = await snapshot();
+  expect(paused.status).toBe('paused');
+  expect(paused).not.toHaveProperty('pauseRemainingMs');
+  await expect(page.getByRole('button', { name: '恢复提醒', exact: true })).toBeVisible();
+  await expect(page.getByText('距离自动恢复', { exact: true })).toHaveCount(0);
+  await expect.poll(async () => (await snapshot()).sequence).toBeGreaterThan(paused.sequence);
+  expect((await snapshot()).status).toBe('paused');
+  await page.getByRole('button', { name: '恢复提醒', exact: true }).click();
+  await expect.poll(async () => (await snapshot()).status).not.toBe('paused');
+});
+
+test('sampling-gap notice is hidden while other warnings stay visible and overview rules stay absent', async () => {
+  const current = await snapshot();
+  const sampleWarning = '系统采样延迟超过 5 秒，未知时段未计入活动';
+  const otherWarning = '配置备份需要检查（界面验证）';
+  await desktop.evaluate(({ BrowserWindow }, fixture) => {
+    BrowserWindow.getAllWindows().find(window => window.webContents.getURL().includes('surface=main'))!.webContents.send('eyecare:snapshot-updated', fixture);
+  }, { ...current, sequence: current.sequence + 20, warnings: [sampleWarning, otherWarning] });
+  await expect(page.getByText(otherWarning, { exact: true })).toBeVisible();
+  await expect(page.getByText(sampleWarning, { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: '当前提醒规则', exact: true })).toHaveCount(0);
+});

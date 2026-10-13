@@ -10,6 +10,12 @@ describe('renderer command boundary', () => {
     expect(() => emptyPayload(undefined)).not.toThrow();
     for (const value of [null, {}, [], 'x']) expect(() => emptyPayload(value)).toThrow();
   });
+  it('accepts a parameterless manual pause and rejects obsolete timed pause payloads', () => {
+    expect(() => emptyPayload(undefined)).not.toThrow();
+    for (const durationMinutes of [15, 30, 60, null]) {
+      expect(() => emptyPayload({ durationMinutes })).toThrow('此操作不接受参数');
+    }
+  });
   it('only accepts bounded identifiers and allowed actions', () => {
     expect(identity({ id: 'real-123', generation: 2 })).toEqual({ id: 'real-123', generation: 2 });
     for (const invalid of [NaN, Infinity, -1, 0.5, '1']) expect(() => identity({ id: 'x', generation: invalid })).toThrow();

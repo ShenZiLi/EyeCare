@@ -14,7 +14,7 @@ Discrete changes persist immediately;numeric input waits300ms or blur. Fields pr
 
 ## Style and accessibility
 
-Use centralized existing theme tokens,system/CJK fonts,tabular digits and lucide SVGs. Keep minimum640x520,readable labels,keyboard focus and currentOS reduction fallback. No advanced controls or manual save bar;capability details only relevant abnormalities. Never declare native support from style/framework flags.
+Use centralized existing theme tokens,system/CJK fonts,tabular digits and lucide SVGs. Keep minimum640x520 and fit all four normal pages without scrolling at that and default880x620;readable labels,keyboard focus and currentOS reduction fallback remain. Exceptional long errors/large text may overflow accessibly. Press exclusions use zero-specificity :where;verify computedscale1 during active press for both dataset and OS reduced-motion,not merely transition:none. No advanced controls or manual save bar;capability details only relevant abnormalities. Never declare native support from style/framework flags.
 
 ## Cases
 
