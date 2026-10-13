@@ -74,8 +74,6 @@ svg { flex: 0 0 auto; }
 .nav-item { justify-content: flex-start; min-height: 44px; background: transparent; border-color: transparent; padding: 10px 12px; color: var(--text-secondary); gap: 12px; }
 .nav-item.active { color: var(--accent); background: var(--accent-wash); font-weight: 600; }
 .nav-mark { margin-left: auto; width: 5px; height: 5px; background: var(--accent); border-radius: 50%; }
-.sidebar-note { margin-top: auto; display: flex; align-items: flex-start; gap: 8px; color: var(--text-secondary); padding: 12px 8px 0; font-size: 12px; }
-.sidebar-note span { opacity: .85; }
 .main-content { padding: 20px 24px; min-width: 0; max-width: 1040px; width: 100%; margin: 0 auto; scroll-padding-block: 24px; }
 .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
 .status-pill { display: flex; align-items: center; gap: 8px; border: 1px solid var(--soft-line); border-radius: 24px; background: var(--glass-tint); padding: 6px 12px; font-size: 12px; white-space: nowrap; color: var(--text-secondary); }
@@ -90,8 +88,6 @@ svg { flex: 0 0 auto; }
 .action-reason { flex-basis: 100%; }
 .section { padding: 12px; background: var(--surface); border-radius: 24px; box-shadow: var(--surface-ring); margin-bottom: 12px; }
 .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-.section-heading p { margin-top: 2px; color: var(--text-secondary); font-size: 13px; }
-.quiet-note { color: var(--text-secondary); font-size: 12px; margin-top: 8px; }
 .notice { display: flex; gap: 10px; align-items: flex-start; padding: 12px 16px; background: var(--accent-wash); color: var(--text-primary); border-radius: 12px; margin-bottom: 12px; font-size: 13px; }
 .notice > svg { margin-top: 2px; }
 .notice.error { background: var(--error-surface); color: var(--error); }
@@ -112,7 +108,6 @@ svg { flex: 0 0 auto; }
 .choice-card input { grid-row: 1; grid-column: 3; margin: 2px 0 0; }
 .choice-card > svg { grid-row: 1; grid-column: 1; color: var(--text-secondary); }
 .choice-card strong { grid-row: 1; grid-column: 2; font-size: 14px; font-weight: 600; }
-.choice-card > span { grid-row: 2; grid-column: 1 / -1; color: var(--text-secondary); font-size: 12px; }
 .choice-card.selected { border-color: var(--accent); background: var(--accent-wash); }
 .choice-card:has(input:disabled) { cursor: default; }
 .choice-card:has(input:disabled) > strong { color: var(--text-secondary); }
@@ -131,8 +126,7 @@ svg { flex: 0 0 auto; }
 .theme-choices { display: flex; gap: 8px; }
 .theme-choices button { flex: 1; padding: 8px; }
 .theme-choices .selected { background: var(--accent-wash); color: var(--accent); border-color: var(--accent); }
-.preview-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0; }
-.preview-bar strong { font-weight: 550; }
+.preview-bar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 0; }
 .button-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .autosave-status { margin-top: 2px; color: var(--text-secondary); font-size: 12px; }
 .instant-settings input, .instant-settings select, .instant-settings button, .instant-settings summary { scroll-margin-bottom: 24px; }
@@ -176,5 +170,5 @@ svg { flex: 0 0 auto; }
 :root[data-motion="reduced"] button:active { scale: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) { button, .toggle-row input, .toggle-row input::after { transition: none; } button:active:not(:disabled) { scale: 1; transform: none; } }
 @media (prefers-reduced-transparency: reduce) { .sidebar, .status-pill, .rest-panel { backdrop-filter: none; background: var(--surface); } }
-@media (max-width: 760px) { .app-shell { grid-template-columns: 64px minmax(0,1fr); } .sidebar { padding: 16px 8px; } .sidebar .brand { justify-content: center; margin-bottom: 20px; } .sidebar .brand > div, .nav-item > span, .sidebar-note { display: none; } .nav-item { justify-content: center; padding: 10px; position: relative; } .main-content { padding: 16px; } }
+@media (max-width: 760px) { .app-shell { grid-template-columns: 64px minmax(0,1fr); } .sidebar { padding: 16px 8px; } .sidebar .brand { justify-content: center; margin-bottom: 20px; } .sidebar .brand > div, .nav-item > span { display: none; } .nav-item { justify-content: center; padding: 10px; position: relative; } .main-content { padding: 16px; } }
 @media (max-width: 580px) { .main-content { padding: 16px 12px; } .page-heading { flex-wrap: wrap; gap: 8px; } .choice-grid, .field-grid { grid-template-columns: 1fr; } .countdown-card { gap: 8px; text-align: center; } .countdown { font-size: 52px; } .preview-bar, .section-heading { flex-wrap: wrap; } .theme-choices { flex-wrap: wrap; } }

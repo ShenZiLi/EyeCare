@@ -113,7 +113,7 @@ test('preview mask does not confirm rest; real mask confirms once; Escape skips'
   await expect(mask.getByRole('button', { name: /分钟后提醒/ })).toHaveCount(0);
   const event = await mask.evaluate(() => window.eyeCare.getOverlay());
   await mask.screenshot({ path: screenshot('mask-light') });
-  const colors = await mask.evaluate(() => ({ panel: getComputedStyle(document.querySelector('.rest-panel')!).backgroundColor, veil: getComputedStyle(document.querySelector('.rest-backdrop')!).backgroundColor, primary: getComputedStyle(document.querySelector('.rest-panel h1')!).color, secondary: getComputedStyle(document.querySelector('#rest-description')!).color }));
+  const colors = await mask.evaluate(() => ({ panel: getComputedStyle(document.querySelector('.rest-panel')!).backgroundColor, veil: getComputedStyle(document.querySelector('.rest-backdrop')!).backgroundColor, primary: getComputedStyle(document.querySelector('.rest-panel h1')!).color, secondary: getComputedStyle(document.querySelector('.rest-panel .eyebrow')!).color }));
   for (const desktopColor of [[0, 0, 0], [255, 255, 255]]) {
     const surface = over(rgb(colors.panel), over(rgb(colors.veil), desktopColor));
     expect(contrast(rgb(colors.primary), surface)).toBeGreaterThanOrEqual(4.5);
@@ -191,7 +191,7 @@ test('preview UI clears active state after flash and mask close without changing
   await mask.getByRole('button', { name: '知道了', exact: true }).click();
   await expect.poll(async () => (await snapshot()).currentPreviewId).toBeNull();
   await expect(page.getByRole('button', { name: '结束预览', exact: true })).toHaveCount(0);
-  await expect(page.getByText('预览已关闭，不影响实际计时', { exact: true })).toBeVisible();
+  await expect(page.getByText('预览已结束', { exact: true })).toBeVisible();
   const after = await snapshot();
   expect(after.restConfirmedCount).toBe(before.restConfirmedCount);
   expect(after.currentReminderId).toBeNull();
@@ -319,7 +319,6 @@ test('restore defaults uses one confirmation and saves every core choice immedia
   await page.getByRole('button', { name: '确认恢复', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect.poll(async () => (await snapshot()).settings).toEqual(original.settings);
-  await expect(page.getByText('已自动保存并生效', { exact: true })).toBeVisible();
 });
 
 test('General persistence failure keeps the effective theme visible and retries automatically saved intent', async () => {
