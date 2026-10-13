@@ -103,3 +103,38 @@ Delivered SettingsV2 with eight autosaved choices, fixed defaults, strict origin
 ### Next Steps
 
 - Keep delivery task in_progress for native cross-platform physical lock/sleep/multiple displays, Windows/Linux startup rollback, Intel/additional macOS, signing/notarization and sustained performance acceptance; no push or release.
+
+
+## Session 4: Native tray menu only
+<!-- trellis-session: v=2 fp=06c99abd1ecaf000 -->
+
+**Date**: 2026-10-13
+**Task**: Native tray menu only
+**Branch**: `dev`
+
+### Summary
+
+Removed custom tray panel and sender role, keeping native menu callbacks and countdown. Rebuilt and restarted Mac application with verified menu-only behavior.
+
+### Main Changes
+
+- Mac native menu owns tray clicks; Windows/Linux left click opens the same existing menu. Custom panel lifecycle and IPC role removed; close-window guidance and specs synchronized.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `04d093d` | fix: show only the native tray menu on click |
+
+### Testing
+
+- [OK] Typecheck/lint and185 unit/integration cases passed; scoped review found no defects.
+- [OK] Actual isolated Mac package: no extra BrowserWindow on emitted click, native menu popup and overview/pause/resume/settings callbacks passed. OS login state unchanged; fixture removed. Rebuilt ZIP and final user app restarted.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Keep original task active for physical pointer-click and native Windows/Linux acceptance plus existing cross-platform physical/signing/long-run release checks.
