@@ -262,3 +262,25 @@ Default native window width reduced880to800,height620/minimum640x520 retained. L
 ### Status
 
 [OK] **Completed**
+
+
+## Session 10: 600px default window
+<!-- trellis-session: v=2 fp=495c2a12a806b75e -->
+
+**Date**: 2026-10-14
+**Task**: 600px default window
+**Branch**: `dev`
+
+### Summary
+
+Default width600 and minWidth600,height620/minHeight520. Existing narrow icon sidebar responsive layout applies. Mac fullsigned app/ZIP rebuilt and actualapp restarted; native screenshot1200physicalpixels confirms600logicalwidth. User settings preserved,no fullsuite.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8fed8c1` | style: reduce the default window width to 600 |
+
+### Status
+
+[OK] **Completed**
