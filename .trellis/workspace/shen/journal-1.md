@@ -240,3 +240,25 @@ Removed unsolicited mount animations, reserved autosave feedback geometry, prese
 ### Status
 
 [OK] **Completed**
+
+
+## Session 9: Narrow default window
+<!-- trellis-session: v=2 fp=de95ea311dcd508b -->
+
+**Date**: 2026-10-14
+**Task**: Narrow default window
+**Branch**: `dev`
+
+### Summary
+
+Default native window width reduced880to800,height620/minimum640x520 retained. Left176px navigation preserved;right content reduced80px. Typecheck and signedMacmake passed; actualapp restarted and screenshot confirmed800logicalwidth. No fullsuite; unrelated .idea/.trae preserved.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `51e6699` | style: narrow the default application window |
+
+### Status
+
+[OK] **Completed**
