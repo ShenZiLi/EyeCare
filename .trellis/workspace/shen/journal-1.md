@@ -284,3 +284,25 @@ Default width600 and minWidth600,height620/minHeight520. Existing narrow icon si
 ### Status
 
 [OK] **Completed**
+
+
+## Session 11: GitHub README
+<!-- trellis-session: v=2 fp=874006952affd297 -->
+
+**Date**: 2026-10-14
+**Task**: GitHub README
+**Branch**: `dev`
+
+### Summary
+
+Rewrote Chinese README following GitHub official README guidance: product/use/core settings/platform scope/start/build/signing/development/privacy/FAQ/contributions/MIT. Verified real release list is empty; no fictional download or CI-passing claim. Updated local ad-hoc Mac signing/default600width/manualpause details. All local links/resources and11 script references validated; docsonly no code suite/rebuild. Unrelated .idea/.trae preserved.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7dc7e1b` | docs: rewrite README for GitHub project onboarding |
+
+### Status
+
+[OK] **Completed**
