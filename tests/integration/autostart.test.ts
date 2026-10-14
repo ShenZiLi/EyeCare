@@ -104,7 +104,9 @@ describe('actual OS login state snapshots', () => {
     const change = await prepareLoginChange(true, context); await change.apply();
     expect(await readFile(file)).not.toEqual(original);
     await change.rollback();
-    expect(await readFile(file)).toEqual(original); expect((await stat(file)).mode & 0o777).toBe(0o764);
+    expect(await readFile(file)).toEqual(original);
+    // Windows does not support Unix permission bits; verify them on POSIX hosts.
+    if (process.platform !== 'win32') expect((await stat(file)).mode & 0o777).toBe(0o764);
     expect(await readFile(other, 'utf8')).toBe('unrelated');
   });
   it('restores absence of the Linux owned file', async () => {
