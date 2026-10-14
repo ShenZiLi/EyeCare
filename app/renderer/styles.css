@@ -68,8 +68,10 @@ svg { flex: 0 0 auto; }
 .sidebar { display: flex; flex-direction: column; padding: 20px 12px 16px; background: var(--glass-tint); backdrop-filter: blur(20px); border-right: 1px solid var(--soft-line); position: sticky; height: 100vh; top: 0; }
 .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
 .brand-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 14px; color: var(--accent); background: var(--accent-wash); }
+.rest-mark { display: block; width: 28px; height: 28px; background: currentColor; -webkit-mask: url('./assets/rest-mark.svg') center / contain no-repeat; mask: url('./assets/rest-mark.svg') center / contain no-repeat; }
+.loading-mark { width: 48px; height: 48px; color: var(--accent); }
 .brand strong { display: block; font-size: 18px; letter-spacing: -.4px; line-height: 1.4; }
-.brand span:not(.brand-icon) { display: block; font-size: 12px; color: var(--text-secondary); }
+.brand > div > span { display: block; font-size: 12px; color: var(--text-secondary); }
 .sidebar nav { display: grid; gap: 8px; }
 .nav-item { justify-content: flex-start; min-height: 44px; background: transparent; border-color: transparent; padding: 10px 12px; color: var(--text-secondary); gap: 12px; }
 .nav-item.active { color: var(--accent); background: var(--accent-wash); font-weight: 600; }
@@ -166,6 +168,7 @@ svg { flex: 0 0 auto; }
 .rest-panel { width: min(480px,100%); max-height: calc(100vh - 48px); overflow: auto; position: relative; padding: 40px 32px 32px; border-radius: 24px; border: 1px solid var(--soft-line); background: var(--rest-surface); backdrop-filter: blur(20px); box-shadow: var(--shadow); text-align: center; }
 .rest-skip { position: absolute; right: 12px; top: 12px; }
 .rest-icon { display: grid; place-items: center; width: 72px; height: 72px; border-radius: 24px; background: var(--accent-wash); color: var(--accent); margin: 0 auto 24px; }
+.rest-icon .rest-mark { width: 44px; height: 44px; }
 .rest-panel h1 { margin: 8px 0 16px; font-size: 26px; overflow-wrap: anywhere; }
 .rest-panel > p { color: var(--text-secondary); }
 .rest-actions { display: grid; gap: 12px; margin: 24px 0 16px; }

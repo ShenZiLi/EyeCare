@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Eye, LayoutDashboard, Timer, Sparkles, Settings2, Pause, Play, Bell, Power, Check, RotateCcw } from 'lucide-react';
+import { LayoutDashboard, Timer, Sparkles, Settings2, Pause, Play, Bell, Power, Check, RotateCcw } from 'lucide-react';
 import { defaultSettings, formatTime, statusLabels, type AppError, type Result, type RuntimeSnapshot, type SettingsV2 } from '../shared/contracts';
 import { applyAppearance, Icon, Modal, Notice } from './components';
 import { TriggerSettings, ReminderSettings, GeneralSettings } from './Settings';
@@ -50,7 +50,7 @@ export function App({ tray = false }: { tray?: boolean }) {
     finally { setBusy(false); }
   };
   const retryAuto = async () => { try { editor.accept(await window.eyeCare.getSnapshot()); editor.retry(); } catch { setError({ code: 'connection', message: '桌面服务没有响应，请重试。' }); } };
-  if (!snapshot || !draft) return <div className="loading"><Icon icon={Eye} size={40}/><h1>EyeCare</h1><p role="status">{connectionError || '正在连接护眼服务…'}</p></div>;
+  if (!snapshot || !draft) return <div className="loading"><span className="rest-mark loading-mark" aria-hidden="true"/><h1>EyeCare</h1><p role="status">{connectionError || '正在连接护眼服务…'}</p></div>;
   const command = (action: 'resume' | 'remind' | 'pause') => invoke(() => action === 'resume' ? window.eyeCare.resume() : action === 'remind' ? window.eyeCare.remindNow() : window.eyeCare.pause());
   const settingError = editing.failure;
   const resultErrors = snapshot.latestReminderResult?.channels.filter(channel => !channel.success) ?? [];
@@ -72,7 +72,7 @@ export function App({ tray = false }: { tray?: boolean }) {
   </div>;
 }
 
-function Brand() { return <div className="brand"><span className="brand-icon"><Icon icon={Eye} size={24}/></span><div><strong>EyeCare</strong><span>让眼睛歇一会儿</span></div></div>; }
+function Brand() { return <div className="brand"><span className="brand-icon"><span className="rest-mark" aria-hidden="true"/></span><div><strong>EyeCare</strong><span>让眼睛歇一会儿</span></div></div>; }
 function RuntimeDisplay({ snapshot, compact = false }: { snapshot: RuntimeSnapshot; compact?: boolean }) {
   const remaining = ['counting', 'short_idle', 'long_idle'].includes(snapshot.status) ? snapshot.remainingMs : null;
   const label = snapshot.status === 'paused' ? '护眼提醒' : '距离下一次提醒';

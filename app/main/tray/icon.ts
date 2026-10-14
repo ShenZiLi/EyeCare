@@ -22,14 +22,6 @@ const chunk = (type: string, data: Buffer): Buffer => {
   const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(payload));
   return Buffer.concat([length, payload, crc]);
 };
-/** macOS 状态项必须携带非空图片，空图片会让整个菜单栏项（含标题）消失；用 1×1 透明模板图占位以显示纯文字倒计时。 */
-export function blankTrayIcon(): Electron.NativeImage {
-  const pixels = Buffer.alloc(1 * 4 + 1);
-  const header = Buffer.alloc(13); header.writeUInt32BE(1, 0); header.writeUInt32BE(1, 4); header[8] = 8; header[9] = 6;
-  const image = nativeImage.createFromBuffer(Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', header), chunk('IDAT', deflateSync(pixels)), chunk('IEND', Buffer.alloc(0))]));
-  image.setTemplateImage(true);
-  return image;
-}
 export function numericTrayIcon(label: string, dark: boolean): Electron.NativeImage {
   const size = 32;
   const pixels = Buffer.alloc((size * 4 + 1) * size);
