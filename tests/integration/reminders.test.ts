@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { defaultSettings, resolveSettings, type OverlayState, type ReminderEvent, type RuntimeSnapshot } from '../../app/shared/contracts';
-const fake = vi.hoisted(() => ({ windows: [] as unknown[], notices: [] as unknown[], nextId: 1, loader: null as null | (() => Promise<void>), displays: [{ id: 1, bounds: { x: 0, y: 0, width: 1920, height: 1080 } }, { id: 2, bounds: { x: 1920, y: 0, width: 1280, height: 720 } }] }));
+const fake = vi.hoisted(() => ({ windows: [] as unknown[], notices: [] as unknown[], noticeError: null as string | null, nextId: 1, loader: null as null | (() => Promise<void>), displays: [{ id: 1, bounds: { x: 0, y: 0, width: 1920, height: 1080 } }, { id: 2, bounds: { x: 1920, y: 0, width: 1280, height: 720 } }] }));
 vi.mock('electron', async () => {
   const { EventEmitter } = await import('node:events');
   class Window extends EventEmitter {
@@ -13,11 +13,11 @@ vi.mock('electron', async () => {
     isDestroyed() { return this.destroyed; }
     destroy() { this.destroyed = true; this.emit('closed'); }
   }
-  class Notice extends EventEmitter { constructor() { super(); fake.notices.push(this); } static isSupported() { return true; } show() { this.emit('show'); } close() {} }
+  class Notice extends EventEmitter { constructor() { super(); fake.notices.push(this); } static isSupported() { return true; } show() { if (fake.noticeError) this.emit('failed', {}, fake.noticeError); else this.emit('show'); } close = vi.fn(); }
   return { BrowserWindow: Window, Notification: Notice, screen: { getAllDisplays: () => fake.displays, getPrimaryDisplay: () => fake.displays[0] } };
 });
 vi.mock('../../app/main/windows', () => ({ windowOptions: () => ({}), loadSurface: () => fake.loader?.() ?? Promise.resolve() }));
-import { ReminderCoordinator } from '../../app/main/reminders/coordinator';
+import { notificationFailureMessage, ReminderCoordinator } from '../../app/main/reminders/coordinator';
 
 function snapshot(): RuntimeSnapshot {
   const available = { state: 'available' as const, reason: '' };
@@ -27,7 +27,7 @@ const reminder = (visual: 'flash' | 'mask' | 'none' | 'notification' = 'flash', 
 const overlays = (coordinator: ReminderCoordinator): { id: number; state: OverlayState }[] => (fake.windows as { webContents: { id: number } }[]).map(window => ({ id: window.webContents.id, state: coordinator.getOverlay(window.webContents.id)! }));
 
 describe('multi-screen reminder lifecycle', () => {
-  beforeEach(() => { fake.windows = []; fake.notices = []; fake.nextId = 1; fake.loader = null; vi.useRealTimers(); });
+  beforeEach(() => { fake.windows = []; fake.notices = []; fake.noticeError = null; fake.nextId = 1; fake.loader = null; vi.useRealTimers(); });
   afterEach(() => vi.useRealTimers());
   it('one sound owner and click-through inactive flash; all screens settle once and stop remaining audio', async () => {
     const complete = vi.fn(); const coordinator = new ReminderCoordinator(snapshot, () => true, complete, vi.fn());
@@ -127,6 +127,41 @@ describe('multi-screen reminder lifecycle', () => {
     expect(complete).not.toHaveBeenCalled();
     coordinator.soundStarted(first.id, 'real-1', 1);
     expect(complete).toHaveBeenCalledOnce(); expect(complete.mock.calls[0][1]).toEqual([{ channel: 'visual', success: true, message: '系统通知已提交' }]);
+  });
+  it.each(['未能完成操作。（UNErrorDomain错误1。）', 'The operation couldn’t be completed. (UNErrorDomain error 1.)'])('macOS notification denial has actionable settings and signed-app instructions: %s', error => {
+    expect(notificationFailureMessage(error, 'darwin')).toBe('macOS 未允许 EyeCare 发送通知，请在系统设置 → 通知 → EyeCare 开启允许通知；若无条目请使用已签名应用重试');
+  });
+  it.each([
+    ['未能完成操作。（UNErrorDomain错误11。）', 'darwin'],
+    ['UNErrorDomain error 1.', 'win32'],
+    ['OtherErrorDomain error 1.', 'darwin'],
+  ] as const)('other notification failures retain their diagnostics: %s on %s', (error, platform) => {
+    expect(notificationFailureMessage(error, platform)).toBe(`通知发送失败：${error}`);
+  });
+  it('notification denial without sound settles once, closes notice and does not retry', async () => {
+    vi.useFakeTimers(); fake.noticeError = '未能完成操作。（UNErrorDomain错误1。）';
+    const complete = vi.fn(); const coordinator = new ReminderCoordinator(snapshot, () => true, complete, vi.fn());
+    const event = reminder('notification'); event.settings.reminder.soundEnabled = false;
+    expect(await coordinator.present(event)).toMatchObject({ ok: false, error: { code: 'REMINDER_DELIVERY_FAILED' } });
+    expect(complete).toHaveBeenCalledOnce(); expect(coordinator.current).toBeNull(); expect(fake.windows).toHaveLength(0);
+    expect((fake.notices[0] as { close: ReturnType<typeof vi.fn> }).close).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(30000); expect(complete).toHaveBeenCalledOnce(); expect(fake.notices).toHaveLength(1);
+  });
+  it('notification denial preserves configured audio, then cleans its hidden host once audio completes', async () => {
+    vi.useFakeTimers(); fake.noticeError = 'UNErrorDomain error 1.';
+    const complete = vi.fn(); const coordinator = new ReminderCoordinator(snapshot, () => true, complete, vi.fn());
+    const event = reminder('notification'); await coordinator.present(event);
+    const [host] = overlays(coordinator); coordinator.ready(host.id, event.id, event.generation);
+    coordinator.soundStarted(host.id, event.id, event.generation);
+    expect(complete).not.toHaveBeenCalled();
+    const window = fake.windows[0] as { isDestroyed(): boolean }; expect(window.isDestroyed()).toBe(false);
+    coordinator.report(host.id, event.id, event.generation, [{ channel: 'sound', success: true, message: '播放完成' }]);
+    expect(complete).toHaveBeenCalledOnce(); expect(complete.mock.calls[0][1]).toEqual([
+      { channel: 'visual', success: false, message: notificationFailureMessage(fake.noticeError) },
+      { channel: 'sound', success: true, message: '播放完成' },
+    ]);
+    expect(window.isDestroyed()).toBe(true); expect(coordinator.current).toBeNull();
+    await vi.advanceTimersByTimeAsync(30000); expect(complete).toHaveBeenCalledOnce();
   });
   it('failed visual waits for configured sound fallback before settlement', async () => {
     const complete = vi.fn(); const coordinator = new ReminderCoordinator(snapshot, () => true, complete, vi.fn());

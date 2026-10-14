@@ -88,3 +88,9 @@ Additional macOS versions/Intel and Linux hosts, signing/notarization credential
 四页压缩留白、并排控件，保留亮暗模式和自动保存。概览间隔为20/30/40/自定义分钟，共用触发条件配置。暂停及托盘暂停只手动恢复，删除暂停期限和规则卡片；仅隐藏采样延迟提示，保留未知时段不计入活动的处理。
 
 最终改动定向46项后端测试、类型检查及相关lint通过，3项Electron用例通过，覆盖四页×双主题×880×620/640×520、间隔保存、自定义校验、手动恢复及提示删除。Mac打包完成。此前紧凑布局185项检查、17项GUI及旧打包16组合证据仅代表当时版本。用户要求停止校验，最终包实机矩阵、其他平台与大字体未新增验收。现有Windows/macOS原始实机记录保留。
+
+## 2026-10-14 macOS notification repair
+
+Current package inherited only Electron linker signing (unbound Info.plist/no resource seal);the native notification failed UNErrorDomain1 and System Settings listed no EyeCare entry. Local Mac builds now sign the complete bundle ad-hoc via Forge's installed inside-out signer;configured Developer ID/notarization paths are preserved. New native package signature verifies deep/strict and binds org.eyecare.desktop,Info.plist and resources.
+
+Root launched the actual .app and selected notification preview through native UI: preview ended automatically without delivery error,show-event submission confirmed. Agent did not change OS notification permissions. Banner presentation under screen sharing/Focus,denied-permission recovery,Developer ID distribution,otherhosts and notification staleclick remain separate acceptance.29 focused lifecycle tests,typecheck and scopedlint passed;readonly source review approved. No full-suite repeat.

@@ -116,3 +116,7 @@ Wrong: absence of lock evidence means unlocked. Correct: unknown suppresses.
 - Build under the documented Node 24 baseline. Pin the packager-only `extract-zip` alias to `npm:@electron-internal/extract-zip@1.0.5` in package/lock files. Its Node >=22.12 requirement is mandatory. Do not infer package success from exit status: verify the target `.app` executable and generated ZIP; the old extractor exited successfully with an incomplete extraction on this host.
 
 Wrong: `cg.symbol('kCGSessionOnConsoleKey')`, absent flags treated as false, or an old unlock event accepted as current evidence. Correct: literal CF keys, typed current-session evidence and unknown suppression. Wrong: invalid event ages hidden by `Math.min`; correct: validate each age first.
+
+### macOS notification signing
+
+Electron44 uses UNUserNotificationCenter and requests authorization internally. Notification.isSupported() proves API availability only;successful show/failed events determine delivery. A packaged Mac app needs a complete bundle signature binding Info.plist/resources,not merely an inherited Electron linker signature. Local builds without a configured Developer ID use full ad-hoc bundle signing;Developer ID/notarization remains required for distribution. Never disable security checks/reset user permissions or silently replace notification with a mask. macOS UNErrorDomain1 maps to actionable notification-settings/signed-app instructions;retain generic errors for other platforms/domains/codes. Local signing cannot override user denial.

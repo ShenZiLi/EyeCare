@@ -2,6 +2,13 @@ import { BrowserWindow, Notification, screen } from 'electron';
 import type { ChannelResult, OverlayState, PreviewResult, ReminderAction, ReminderEvent, Result, RuntimeSnapshot } from '../../shared/contracts';
 import { loadSurface, windowOptions } from '../windows';
 
+export function notificationFailureMessage(error: string, platform: NodeJS.Platform = process.platform): string {
+  if (platform === 'darwin' && /UNErrorDomain\s*(?:错误|error|code\s*=?)?\s*1\s*[.)。）]*\s*$/i.test(error)) {
+    return 'macOS 未允许 EyeCare 发送通知，请在系统设置 → 通知 → EyeCare 开启允许通知；若无条目请使用已签名应用重试';
+  }
+  return `通知发送失败：${error}`;
+}
+
 interface OverlayWindow { window: BrowserWindow; state: OverlayState; displayId: number | null; ready: boolean; visualResult?: ChannelResult }
 interface Session { event: ReminderEvent; windows: Map<number, OverlayWindow>; channels: ChannelResult[]; timers: Set<ReturnType<typeof setTimeout>>; notification?: Notification; notificationSubmitted: boolean; cancelled: boolean; creating: boolean; soundOwner: number | null; result: PreviewResult | null }
 export class ReminderCoordinator {
@@ -38,7 +45,7 @@ export class ReminderCoordinator {
           const notice = new Notification({ title: 'EyeCare · 休息提醒', body: event.settings.reminder.message, silent: true });
           session.notification = notice;
           notice.once('show', () => this.record(session, { channel: 'visual', success: true, message: '系统通知已提交' }));
-          notice.once('failed', (_event, error) => this.record(session, { channel: 'visual', success: false, message: `通知发送失败：${error}` }));
+          notice.once('failed', (_event, error) => this.record(session, { channel: 'visual', success: false, message: notificationFailureMessage(error) }));
           notice.on('click', this.openHome);
           if (!event.settings.reminder.soundEnabled) this.submitNotification(session);
         } catch { this.record(session, { channel: 'visual', success: false, message: '系统通知发送失败' }); }
