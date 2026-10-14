@@ -67,7 +67,7 @@ function apply(update: EngineUpdate): Result<RuntimeSnapshot> { publish(update);
 async function showMain(settings = false) {
   if (settings) settingsRequested = true;
   if (!mainWindow || mainWindow.isDestroyed()) {
-    mainWindow = new BrowserWindow({ width: 800, height: 620, minWidth: 640, minHeight: 520, show: false, title: 'EyeCare', backgroundColor: nativeTheme.shouldUseDarkColors ? '#111A18' : '#F4F7F6', autoHideMenuBar: true, webPreferences: windowOptions() });
+    mainWindow = new BrowserWindow({ width: 600, height: 620, minWidth: 600, minHeight: 520, show: false, title: 'EyeCare', backgroundColor: nativeTheme.shouldUseDarkColors ? '#111A18' : '#F4F7F6', autoHideMenuBar: true, webPreferences: windowOptions() });
     mainWindow.once('ready-to-show', () => mainWindow?.show());
     mainWindow.on('close', event => {
       if (quitting || !hasConfirmedTray()) return;
