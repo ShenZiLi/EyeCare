@@ -70,3 +70,7 @@ Wrong: full form needs another Save button. Correct: all8 controls autosave and 
 - Preview controls/results derive from main snapshot identity;renderer local booleans cannot outlive closed windows.
 - Overlay consumes resolved creation-time options,validates readiness/playback callbacks and cleans timers/audio when destroyed.
 - Fixed production CSP permits local scripts/media only,renderer Node remains disabled.
+
+### Stable choice switching
+
+Trigger/reminder selection is frequent state feedback,not an entrance animation. Keep choice-card geometry/opacity stable across pointer/keyboard selection and automatic-save completion. Reserve a consistent settings-page feedback slot;pending status must not push all content down and remove it again. No global section/field/notice mount keyframes or card transform/scale. Card keyboard focus uses input:focus-visible with one visible card ring;pointer focus must not add a second ring. Preserve native radio semantics,disabled handling and rapid autosave intents. Any selection transition is short,named-property and interruptible;keyboard/reduced-motion selection is immediate. Do not hide errors to obtain stable geometry.

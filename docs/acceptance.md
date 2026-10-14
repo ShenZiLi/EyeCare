@@ -94,3 +94,9 @@ Additional macOS versions/Intel and Linux hosts, signing/notarization credential
 Current package inherited only Electron linker signing (unbound Info.plist/no resource seal);the native notification failed UNErrorDomain1 and System Settings listed no EyeCare entry. Local Mac builds now sign the complete bundle ad-hoc via Forge's installed inside-out signer;configured Developer ID/notarization paths are preserved. New native package signature verifies deep/strict and binds org.eyecare.desktop,Info.plist and resources.
 
 Root launched the actual .app and selected notification preview through native UI: preview ended automatically without delivery error,show-event submission confirmed. Agent did not change OS notification permissions. Banner presentation under screen sharing/Focus,denied-permission recovery,Developer ID distribution,otherhosts and notification staleclick remain separate acceptance.29 focused lifecycle tests,typecheck and scopedlint passed;readonly source review approved. No full-suite repeat.
+
+## 2026-10-14 stable option feedback
+
+Trigger/reminder card switching removes content entrance movement/flashes,reserves settings autosave feedback height and uses keyboard-only single card focus. Custom-drawn native radios preserve names,checked/disabled states and keyboard arrows. Fast130ms background/border feedback is suppressed for keyboard-focused groups and reducedmotion.
+
+Focused realElectron matrix exercises both pages,two themes and880620/640520 windows,frame-samples selection/autosave,checks stationary geometry/no CSSkeyframes/persistedselection/pointervskeyboardfocus/keyboardarrows/reducedmotion/minfit. Typecheck/scopedlint/source review pass;Macsignedpackage rebuilt. Fullsuite not repeated;existing native platform acceptance evidence retained.

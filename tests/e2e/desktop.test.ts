@@ -515,3 +515,59 @@ test('sampling-gap notice is hidden while other warnings stay visible and overvi
   await expect(page.getByText(sampleWarning, { exact: true })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: '当前提醒规则', exact: true })).toHaveCount(0);
 });
+
+test('choice switching keeps cards stationary through autosave and uses keyboard-only focus', async () => {
+  for (const theme of ['light', 'dark'] as const) {
+    const current = await snapshot();
+    expect((await save(current.settingsRevision, { ...current.settings, appearance: { ...current.settings.appearance, theme } })).ok).toBe(true);
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+    for (const [width, height] of [[880, 620], [640, 520]]) {
+      await desktop.evaluate(({ BrowserWindow }, size) => BrowserWindow.getAllWindows().find(window => window.webContents.getURL().includes('surface=main'))!.setSize(size.width, size.height), { width, height });
+      for (const surface of ['触发条件', '提醒方式']) {
+        await page.getByRole('button', { name: surface, exact: true }).click();
+        const cards = page.locator('.choice-card');
+        const labels = surface === '触发条件' ? ['固定周期', '累计活跃时间'] : ['确认蒙版', '仅声音', '柔和闪屏'];
+        for (const label of labels) {
+          const before = await cards.first().boundingBox();
+          await page.evaluate(() => {
+            const samples: { top: number; transform: string; opacity: string; animations: string[] }[] = [];
+            (window as unknown as { choiceSamples: typeof samples }).choiceSamples = samples;
+            const finish = performance.now() + 420;
+            const sample = () => {
+              const card = document.querySelector('.choice-card')!;
+              const style = getComputedStyle(card);
+              samples.push({ top: card.getBoundingClientRect().top, transform: style.transform, opacity: style.opacity, animations: document.getAnimations().filter(animation => animation instanceof CSSAnimation).map(animation => (animation as CSSAnimation).animationName) });
+              if (performance.now() < finish) requestAnimationFrame(sample);
+            };
+            sample();
+          });
+          await page.getByRole('radio', { name: label, exact: true }).click();
+          await expect(page.getByRole('radio', { name: label, exact: true })).toBeChecked();
+          await expect.poll(async () => {
+            const state = await snapshot();
+            return surface === '触发条件' ? state.settings.timer.mode : state.settings.reminder.visual;
+          }).toBe(surface === '触发条件' ? label === '固定周期' ? 'fixed' : 'active' : label === '确认蒙版' ? 'mask' : label === '仅声音' ? 'none' : 'flash');
+          await page.waitForTimeout(450);
+          const samples = await page.evaluate(() => (window as unknown as { choiceSamples: { top: number; transform: string; opacity: string; animations: string[] }[] }).choiceSamples);
+          expect(samples.length).toBeGreaterThan(2);
+          for (const sample of samples) {
+            expect(Math.abs(sample.top - before!.y)).toBeLessThan(0.5);
+            expect(sample.transform).toBe('none'); expect(sample.opacity).toBe('1'); expect(sample.animations).toEqual([]);
+          }
+          expect(await page.getByRole('radio', { name: label, exact: true }).evaluate(input => getComputedStyle(input.closest('.choice-card')!).outlineColor)).toBe('rgba(0, 0, 0, 0)');
+        }
+        await cards.first().locator('input').focus();
+        await page.keyboard.press('Tab'); await page.keyboard.press('Shift+Tab');
+        expect(await cards.first().evaluate(card => card.matches(':has(input:focus-visible)'))).toBe(true);
+        expect(await cards.first().evaluate(card => getComputedStyle(card).outlineColor)).not.toBe('rgba(0, 0, 0, 0)');
+        await page.keyboard.press('ArrowRight');
+        await expect(cards.nth(1).locator('input')).toBeChecked();
+        expect(await cards.evaluateAll(items => items.every(card => getComputedStyle(card).transitionDuration === '0s'))).toBe(true);
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+        expect(await cards.first().evaluate(card => getComputedStyle(card).transitionDuration)).toBe('0s');
+        await page.emulateMedia({ reducedMotion: 'no-preference' });
+        expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1)).toBe(true);
+      }
+    }
+  }
+});
