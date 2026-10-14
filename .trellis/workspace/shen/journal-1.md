@@ -218,3 +218,25 @@ Replaced linker-only Mac signature with complete local ad-hoc bundle signing; De
 ### Status
 
 [OK] **Completed**
+
+
+## Session 8: Stable option switching
+<!-- trellis-session: v=2 fp=84747fee6847ef08 -->
+
+**Date**: 2026-10-14
+**Task**: Stable option switching
+**Branch**: `dev`
+
+### Summary
+
+Removed unsolicited mount animations, reserved autosave feedback geometry, preserved timer-field identity, and added stable custom-drawn native radio/focus feedback. Scoped lint/typecheck and focused real Electron both-page/theme/window matrix with keyboard arrows/reducedmotion passed. Mac signed app rebuilt/restarted; no fullsuite. Unrelated .idea/.trae preserved; overall native acceptance remains open.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `554be2a` | fix: keep option switching stable and eliminate UI flicker |
+
+### Status
+
+[OK] **Completed**
