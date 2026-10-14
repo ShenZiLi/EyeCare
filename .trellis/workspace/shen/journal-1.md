@@ -196,3 +196,25 @@ Delivered compact four-page UI, interval presets/custom autosave, manual-only pa
 ### Status
 
 [OK] **Completed**
+
+
+## Session 7: Repair macOS notification signing
+<!-- trellis-session: v=2 fp=1494d0eef974be72 -->
+
+**Date**: 2026-10-14
+**Task**: Repair macOS notification signing
+**Branch**: `dev`
+
+### Summary
+
+Replaced linker-only Mac signature with complete local ad-hoc bundle signing; Developer ID flow retained. Actionable macOS notification denial messages and29 focused lifecycle tests/typecheck/scopedlint passed. Actual signed app notification preview submitted without failure; final app rebuilt/restarted. No full test suite or OS permission changes. Physical banner/distribution acceptance remains open; user .idea/.trae untouched.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b559ac2` | fix: sign local macOS bundles for system notifications |
+
+### Status
+
+[OK] **Completed**

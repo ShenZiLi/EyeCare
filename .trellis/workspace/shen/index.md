@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 6
-- **Last Active**: 2026-10-13
+- **Total Sessions**: 7
+- **Last Active**: 2026-10-14
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~198 | Active |
+| `journal-1.md` | ~220 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 7 | 2026-10-14 | Repair macOS notification signing | `b559ac2` | `dev` |
 | 6 | 2026-10-13 | Compact pages and manual pause | `eaf6243` | `dev` |
 | 5 | 2026-10-13 | Deep black flash veil | `534e548` | `dev` |
 | 4 | 2026-10-13 | Native tray menu only | `04d093d` | `dev` |
