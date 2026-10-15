@@ -10,3 +10,5 @@ out/
 test-results/
 playwright-report/
 *.log
+.idea
+output

@@ -1,0 +1,28 @@
+{
+  "id": "windows-macos-parity",
+  "name": "windows-macos-parity",
+  "title": "Windows 和 Linux 功能对齐 macOS",
+  "description": "按 macOS 已实现能力评估并补齐 Windows/Linux 平台差异，明确受操作系统限制的能力与原生验收标准。",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "shen",
+  "assignee": "shen",
+  "createdAt": "2026-10-14",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "title": "Windows 与 macOS 功能对齐和原生验收"
+  }
+}
