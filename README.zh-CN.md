@@ -18,7 +18,7 @@
 
 EyeCare 是一款常驻托盘的桌面护眼提醒工具，面向 macOS、Windows 和 Linux。它根据鼠标或键盘的活跃时间提醒你休息，也支持固定周期提醒。设置修改后自动保存，配置与计时在本机处理。
 
-项目仍在迭代中，当前版本为 **1.0.2**。目前没有已发布的 GitHub Release 安装包，可先从源码运行或自行打包。各平台的实际验证范围见[平台支持](#平台支持)。
+项目仍在迭代中，当前版本为 **1.0.2**。可从 [GitHub Releases](https://github.com/ShenZiLi/EyeCare/releases) 下载安装包和压缩包，也可从源码运行或自行打包。各平台的实际验证范围见[平台支持](#平台支持)。
 
 [快速开始](#快速开始) · [使用说明](#使用说明) · [本地打包](#本地打包) · [常见问题](#常见问题) · [参与贡献](#参与贡献)
 
@@ -139,7 +139,7 @@ macOS 未配置 Developer ID 时，本地打包会对完整应用进行 **ad-hoc
 
 凭据应通过本机或 CI 环境提供，不要写入仓库。未配置 Windows 证书时产物不带对应发布签名。
 
-[GitHub Actions 工作流](.github/workflows/build.yml)在 Windows、macOS ARM64 / Intel 和 Ubuntu 上检查与构建，并将产物上传为工作流 artifact；工作流没有自动发布 Release 的步骤。
+[GitHub Actions 工作流](.github/workflows/build.yml)在 Windows、macOS ARM64 / Intel 和 Ubuntu 上检查与构建。发布安装包时，打开 **Actions → Verify and build desktop packages → Run workflow**，选择分支并保留默认启用的 **publish_release**。所有平台成功后，工作流以 `v<package.json 版本号>` 发布 GitHub Release，并附上原始安装包和压缩包。产物全程在 GitHub 云端 runner 与 Releases 之间流转，无需下载到本地。关闭 **publish_release** 则只生成工作流 artifact；push 和 pull request 也只生成 artifact，不发布 Release。同版本已有草稿可以复用，已发布版本不可覆盖；再次发布前请先增加版本号。
 
 ## 开发与验证
 

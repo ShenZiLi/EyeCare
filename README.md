@@ -18,7 +18,7 @@
 
 EyeCare is a desktop break reminder that lives in your system tray, built for macOS, Windows, and Linux. It reminds you to rest based on mouse or keyboard activity, or at fixed intervals. Settings save automatically, and configuration and timing are handled locally.
 
-The project is under active development. The current version is **1.0.2**. No installer is currently available through GitHub Releases; you can run from source or build a package locally. See [Platform support](#platform-support) for the scope of testing on each platform.
+The project is under active development. The current version is **1.0.2**. Download installers and archives from [GitHub Releases](https://github.com/ShenZiLi/EyeCare/releases), or run from source and build locally. See [Platform support](#platform-support) for the scope of testing on each platform.
 
 [Quick start](#quick-start) · [Usage](#usage) · [Local packaging](#local-packaging) · [FAQ](#faq) · [Contributing](#contributing)
 
@@ -139,7 +139,7 @@ When no Developer ID is configured on macOS, local packaging applies an **ad-hoc
 
 Provide credentials through your local environment or CI, and keep them out of the repository. Windows artifacts do not carry the corresponding release signature when no Windows certificate is configured.
 
-The [GitHub Actions workflow](.github/workflows/build.yml) checks and builds on Windows, macOS ARM64 / Intel, and Ubuntu, then uploads the outputs as workflow artifacts. It does not automatically publish a Release.
+The [GitHub Actions workflow](.github/workflows/build.yml) checks and builds on Windows, macOS ARM64 / Intel, and Ubuntu. To publish installers, open **Actions → Verify and build desktop packages → Run workflow**, select the branch, and leave **publish_release** enabled (the default). After every platform succeeds, the workflow publishes `v<package.json version>` to GitHub Releases with the original installers and archives. Build outputs move between GitHub-hosted runners and Releases entirely in the cloud; no local download is needed. Disable **publish_release** to produce workflow artifacts only. Pushes and pull requests also produce artifacts without publishing. An existing draft for that version can be reused, but a published version cannot be replaced; increase the version before publishing a new release.
 
 ## Development and verification
 

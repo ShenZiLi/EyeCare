@@ -1,6 +1,11 @@
 name: Verify and build desktop packages
 on:
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: Publish packages to GitHub Releases after all builds succeed
+        type: boolean
+        default: true
   push:
     branches: [dev, main]
   pull_request:
@@ -35,5 +40,86 @@ jobs:
           name: EyeCare-${{ runner.os }}-${{ runner.arch }}
           path: out/make/**
           if-no-files-found: error
+  release:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    concurrency:
+      group: desktop-release
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: EyeCare-*
+          path: release-artifacts
+      - name: Validate packages and publish Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p 'require("./package.json").version')
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid package version: $version" >&2
+            exit 1
+          fi
+          tag="v$version"
+          mkdir release-assets
+          for platform in Windows-X64 macOS-ARM64 macOS-X64 Linux-X64; do
+            artifact="release-artifacts/EyeCare-$platform"
+            if [[ ! -d "$artifact" ]] || [[ -z "$(find "$artifact" -type f -print -quit)" ]]; then
+              echo "Missing packages for $platform" >&2
+              exit 1
+            fi
+          done
+          while IFS= read -r -d '' file; do
+            name=$(basename "$file")
+            if [[ -e "release-assets/$name" ]]; then
+              echo "Duplicate Release asset filename: $name" >&2
+              exit 1
+            fi
+            cp "$file" "release-assets/$name"
+          done < <(find release-artifacts -type f -print0)
+
+          # Fetch errors must stop publishing, rather than look like a missing release.
+          releases=$(gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100")
+          existing=$(jq --arg tag "$tag" '[.[][] | select(.tag_name == $tag)]' <<< "$releases")
+          if [[ "$(jq 'length' <<< "$existing")" -gt 1 ]]; then
+            echo "Multiple releases already use $tag" >&2
+            exit 1
+          fi
+          if [[ "$(jq 'length' <<< "$existing")" == 1 ]] && [[ "$(jq -r '.[0].draft' <<< "$existing")" != true ]]; then
+            echo "$tag is already published. Increase package.json version before publishing again." >&2
+            exit 1
+          fi
+          if git show-ref --verify --quiet "refs/tags/$tag"; then
+            if [[ "$(git rev-parse "$tag^{commit}")" != "$GITHUB_SHA" ]]; then
+              echo "Existing tag $tag does not point to this build ($GITHUB_SHA)." >&2
+              exit 1
+            fi
+          fi
+
+          cat > release-notes.md <<'NOTES'
+          Choose the download for your operating system and CPU:
+          - Windows x64: Setup.exe installer or win32-x64 ZIP.
+          - macOS Apple Silicon: darwin-arm64 ZIP; Intel: darwin-x64 ZIP.
+          - Linux x64: deb, rpm, AppImage, or linux-x64 ZIP.
+
+          macOS packages use ad-hoc signing and are not Developer ID signed or notarized. Windows packages are unsigned because no signing certificate is configured.
+          NOTES
+          if [[ "$(jq 'length' <<< "$existing")" == 0 ]]; then
+            gh release create "$tag" --draft --target "$GITHUB_SHA" --title "EyeCare $version" --notes-file release-notes.md
+          else
+            gh release edit "$tag" --target "$GITHUB_SHA" --title "EyeCare $version" --notes-file release-notes.md
+          fi
+          gh release upload "$tag" release-assets/* --clobber
+          gh release edit "$tag" --draft=false
 # Build artifacts from this workflow are unsigned unless signing is configured.
 # Hosted runners do not replace native GNOME/KDE/macOS/Windows full acceptance.
