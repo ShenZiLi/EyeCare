@@ -1,5 +1,5 @@
 import { test, expect, _electron as electron, type ElectronApplication } from '@playwright/test';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 
@@ -78,7 +78,11 @@ test('macOS close keeps the tray while hiding the Dock and reopening restores fo
     application = await electron.launch({ ...(executablePath ? { executablePath, args: [`--user-data-dir=${directory}`] } : { args: [path.resolve('.')] }), env: { ...environment, EYECARE_TEST_USER_DATA: directory }, timeout: 15000 });
     const desktop = application;
     const child = desktop.process();
-    expect(await desktop.evaluate(({ app }) => ({ userData: app.getPath('userData'), packaged: app.isPackaged }))).toEqual({ userData: directory, packaged: Boolean(executablePath) });
+    const isolated = await desktop.evaluate(({ app }) => ({ userData: app.getPath('userData'), packaged: app.isPackaged }));
+    // macOS packaged Electron canonicalizes /var to /private/var. Compare the
+    // real directory so isolation remains strict across that system symlink.
+    expect(await realpath(isolated.userData)).toBe(await realpath(directory));
+    expect(isolated.packaged).toBe(Boolean(executablePath));
     const page = await desktop.firstWindow();
     await expect(page.getByRole('heading', { name: '概览', exact: true })).toBeVisible();
     const windowState = () => desktop.evaluate(({ app, BrowserWindow }) => {
