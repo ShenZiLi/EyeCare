@@ -18,7 +18,8 @@
 | 3 · 平台原生桥 | 完成（macOS） | `src-tauri/src/platform/`：`mod.rs` 移植 `PlatformAdapter`（连续时钟回退、能力报告、显示器、系统主题），`macos.rs` 移植 `createMacProvider`（`mach_continuous_time`、`CGEventSourceSecondsSinceLastEventType`、会话字典 + IOKit `IOConsoleLocked`）。Windows/Linux 按约定先整体降级为 `unsupported`。`reduceMotion` / `reduceTransparency` / `sleeping` 属「外观/系统事件」，留到 Phase 4 |
 | 4 · 窗口/托盘/覆盖层/通知 | 未开始 | 主窗口关闭隐藏、macOS 隐藏 Dock 图标、托盘菜单与倒计时、覆盖层窗口、通知、外观与电源事件 |
 | 5 · 设置持久化与自启 | 完成（Windows 自启待 Phase 7） | `src-tauri/src/settings/`：`validation.rs`（V2 严格校验 + V1 迁移校验）、`store.rs`（原子写 + `fsync`、`link` 留档、V1→V2 迁移、`revision` 乐观并发）、`mod.rs`（旧 Electron 数据目录一次性补齐）、`save.rs`（登录启动事务编排）。`src-tauri/src/autostart.rs`：macOS 走 `SMAppService`、Linux 走 `.desktop`，含 `prepareLoginChange` 的 capture→apply→校验→rollback。`cargo test` 64 项全部通过。`lib.rs` 启动时从仓库读入设置与 `revision`，并把启动期告警并入每份快照。**自启的 Windows 分支（`StartupApproved` 快照、Squirrel 启动项升级）随 Windows 原生桥留到 Phase 7** |
-| 6–8 | 未开始 | — |
+| 6 · IPC 契约对齐 | 完成（覆盖层接线待 Phase 4） | `src-tauri/src/ipc.rs` + `src-tauri/src/lib.rs`：15 个命令已注册（`get_snapshot` / `settings_requested` / `save_settings` / `pause` / `resume` / `remind_now` / `resolve_reminder` / `preview` / `cancel_preview` / `get_overlay` / `overlay_ready` / `overlay_sound_started` / `overlay_finished` / `open_settings` / `quit`），名称与载荷字段对齐 `bridge.ts`；`ipc.rs` 移植载荷校验与错误码；`command_gate`（`Mutex<()>`）对齐 `commandQueue`；`presented_snapshot` 合并 `previewSequence` / `currentPreviewId` / `latestPreviewResult` 与启动期告警；`save_settings` 接上 `save_with_login`、`validate_settings` 与 `SETTINGS_CONFLICT`。`src-tauri/src/reminders.rs` 为 `ReminderCoordinator` 骨架：Phase 4 前覆盖层窗口不可用，`present` 返回明确的 `REMINDER_DELIVERY_FAILED`，绝不静默假装已呈现。`cargo test` 70 项全部通过 |
+| 7–8 | 未开始 | — |
 
 
 ## 0. 迁移原则（先定边界）
@@ -176,11 +177,15 @@ graph TB
 
 ### Phase 6 · IPC 契约对齐
 
-- [ ] 在 Rust 侧实现 16 个命令，名称与载荷字段与 `EyeCareBridge` 一一对应
-- [ ] 事件通道对齐：`eyecare:snapshot-updated`、`eyecare:overlay-updated`、`eyecare:open-settings`
-- [ ] 移植 `ipc-validation.ts`：来源信任校验、payload 白名单、`Result<T>` 错误码（`0001`/`REMINDER_BUSY`/`STALE_REMINDER`…）
-- [ ] 保留命令串行化（`commandQueue`，`index.ts#L145-L148`）
-- [ ] 错误码与文案逐条对齐 `contracts.ts#AppError` 与现有 `CommandError`
+- [x] 在 Rust 侧实现 15 个命令，名称与载荷字段与 `EyeCareBridge` 一一对应
+  > `Bridge` 的 16 个方法里 `subscribeSnapshot` / `subscribeOverlay` / `subscribeOpenSettings` 是事件订阅，不是命令；其余 15 个命令已全部注册
+  > `subscribeOverlay` 依赖的 `eyecare:overlay-updated` 事件随覆盖层窗口在 Phase 4 发出
+- [x] 事件通道对齐：`eyecare:snapshot-updated`、`eyecare:open-settings`（`eyecare:overlay-updated` 随 Phase 4 覆盖层窗口）
+- [x] 移植 `ipc-validation.ts`：载荷校验、`Result<T>` 错误码（`INVALID_COMMAND`/`REMINDER_BUSY`/`STALE_REMINDER`/`SETTINGS_CONFLICT`…）
+  > Tauri 以具名参数绑定载荷，命令签名里的 `Option<Value>` 表达字段必填与类型校验；TS 的 `emptyPayload`/`payload` 白名单语义由参数集合加 `ipc::channel_results` 的逐字段白名单共同表达
+  > 窗口身份校验（`isTrustedSurface`）依赖覆盖层窗口标签，随 Phase 4 接入
+- [x] 保留命令串行化（`AppState.command_gate`，`Mutex<()>`）
+- [x] 错误码与文案逐条对齐 `contracts.ts#AppError` 与现有 `CommandError`
 
 ### Phase 7 · 打包 / 签名 / 验收脚本
 
