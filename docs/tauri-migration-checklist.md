@@ -16,9 +16,9 @@
 | 1 · Tauri 骨架 | 完成 | `src-tauri/` 已生成并配置（identifier `org.eyecare.desktop`、`windows: []`、`macOSPrivateApi`）；`app/renderer/bridge.ts` 已就绪；`npm run vite:dev` / `vite:build` 已接入；`lib.rs` 用 `WebviewWindowBuilder` 创建主窗口（600×500、`?surface=main`、标签 `main`），并注册 `get_snapshot` / `settings_requested`，前端可直接拿到快照。其余 14 个命令留到 Phase 6 |
 | 2 · 定时引擎移植 | 完成 | `src-tauri/src/engine.rs` + `src-tauri/src/engine/tests.rs`，`cargo test` 28 项全部通过 |
 | 3 · 平台原生桥 | 完成（macOS） | `src-tauri/src/platform/`：`mod.rs` 移植 `PlatformAdapter`（连续时钟回退、能力报告、显示器、系统主题），`macos.rs` 移植 `createMacProvider`（`mach_continuous_time`、`CGEventSourceSecondsSinceLastEventType`、会话字典 + IOKit `IOConsoleLocked`）。Windows/Linux 按约定先整体降级为 `unsupported`。`reduceMotion` / `reduceTransparency` / `sleeping` 属「外观/系统事件」，留到 Phase 4 |
-| 4 · 窗口/托盘/覆盖层/通知 | 进行中（主窗口 + 托盘已完成） | 已完成：主窗口关闭隐藏（首次原生说明对话框）、macOS Dock 图标隐藏/恢复与 1100ms 冷却、`window-all-closed` / `activate` 语义、托盘图标与模板图、macOS 倒计时标题、六项右键菜单与禁用态、`hasConfirmedTray` / `presentedSnapshot` 托盘降级、托盘刷新主线程投递。待做：覆盖层窗口、提醒协调器与通知、外观与电源事件 |
+| 4 · 窗口/托盘/覆盖层/通知 | 进行中（窗口/托盘/覆盖层/通知已完成） | 已完成：主窗口关闭隐藏（首次原生说明对话框）、macOS Dock 图标隐藏/恢复与 1100ms 冷却、`window-all-closed` / `activate` 语义、托盘图标与模板图、macOS 倒计时标题、六项右键菜单与禁用态、`hasConfirmedTray` / `presentedSnapshot` 托盘降级、托盘刷新主线程投递、覆盖层窗口 + `ReminderCoordinator` 协调器、通知型提醒与点击回主窗口。待做：外观与电源事件 |
 | 5 · 设置持久化与自启 | 完成（Windows 自启待 Phase 7） | `src-tauri/src/settings/`：`validation.rs`（V2 严格校验 + V1 迁移校验）、`store.rs`（原子写 + `fsync`、`link` 留档、V1→V2 迁移、`revision` 乐观并发）、`mod.rs`（旧 Electron 数据目录一次性补齐）、`save.rs`（登录启动事务编排）。`src-tauri/src/autostart.rs`：macOS 走 `SMAppService`、Linux 走 `.desktop`，含 `prepareLoginChange` 的 capture→apply→校验→rollback。`cargo test` 64 项全部通过。`lib.rs` 启动时从仓库读入设置与 `revision`，并把启动期告警并入每份快照。**自启的 Windows 分支（`StartupApproved` 快照、Squirrel 启动项升级）随 Windows 原生桥留到 Phase 7** |
-| 6 · IPC 契约对齐 | 完成（覆盖层接线待 Phase 4） | `src-tauri/src/ipc.rs` + `src-tauri/src/lib.rs`：15 个命令已注册（`get_snapshot` / `settings_requested` / `save_settings` / `pause` / `resume` / `remind_now` / `resolve_reminder` / `preview` / `cancel_preview` / `get_overlay` / `overlay_ready` / `overlay_sound_started` / `overlay_finished` / `open_settings` / `quit`），名称与载荷字段对齐 `bridge.ts`；`ipc.rs` 移植载荷校验与错误码；`command_gate`（`Mutex<()>`）对齐 `commandQueue`；`presented_snapshot` 合并 `previewSequence` / `currentPreviewId` / `latestPreviewResult` 与启动期告警；`save_settings` 接上 `save_with_login`、`validate_settings` 与 `SETTINGS_CONFLICT`。`src-tauri/src/reminders.rs` 为 `ReminderCoordinator` 骨架：Phase 4 前覆盖层窗口不可用，`present` 返回明确的 `REMINDER_DELIVERY_FAILED`，绝不静默假装已呈现。`cargo test` 70 项全部通过 |
+| 6 · IPC 契约对齐 | 完成 | `src-tauri/src/ipc.rs` + `src-tauri/src/lib.rs`：15 个命令已注册（`get_snapshot` / `settings_requested` / `save_settings` / `pause` / `resume` / `remind_now` / `resolve_reminder` / `preview` / `cancel_preview` / `get_overlay` / `overlay_ready` / `overlay_sound_started` / `overlay_finished` / `open_settings` / `quit`），名称与载荷字段对齐 `bridge.ts`；`ipc.rs` 移植载荷校验与错误码；`command_gate`（`Mutex<()>`）对齐 `commandQueue`；`presented_snapshot` 合并 `previewSequence` / `currentPreviewId` / `latestPreviewResult` 与启动期告警；`save_settings` 接上 `save_with_login`、`validate_settings` 与 `SETTINGS_CONFLICT`。`src-tauri/src/reminders.rs` 的 `ReminderCoordinator` 已在 Phase 4 补齐为完整实现（会话状态机、覆盖层窗口、通知、结算回调）。`cargo test` 75 项全部通过 |
 | 7–8 | 未开始 | — |
 
 
@@ -145,21 +145,28 @@ graph TB
   - [x] `presentedSnapshot` 的托盘降级覆盖 + `hasConfirmedTray` + `tick` 的能力报告降级，三处语义与 TS 同名逻辑一致
   - [x] 托盘刷新统一投递到主线程
     > tauri 的托盘 setter 经 `run_item_main_thread!` **阻塞**等待主线程执行；若在采样线程直接调用，会与主线程上的托盘菜单回调互相等待。因此 `emit_snapshot` 用 `run_on_main_thread` 投递，采样线程全程不阻塞
-- [ ] **覆盖层**（`coordinator.ts#L88-L122`）
-  - [ ] 每显示器一个 `WebviewWindow`：无边框、透明、`skipTaskbar`、不可移动/缩放
-  - [ ] 置顶层：`setAlwaysOnTop(true, 'screen-saver')` → Tauri `set_always_on_top`；**跨全屏空间**需额外设 `NSWindowCollectionBehavior`（见风险 R1）
-  - [ ] `flash` 用 `show_inactive`，`mask` 可聚焦；非 mask 走 `set_ignore_cursor_events(true)`
-  - [ ] `loadSurface` 的 URL 来源校验（`windows.ts` 的 `surfaceURLs` + `trustedSource`）→ Tauri capability/ACL 等价实现
-  - [ ] 保留 12s 就绪超时、`render-process-gone`/`unresponsive` 等价事件、热插拔 `refreshDisplays`
-- [ ] **托盘**（`tray/presenter.ts`）
-  - [ ] 图标 + `iconAsTemplate`（macOS 模板图）
-  - [ ] macOS 倒计时 `setTitle(formatTime)` + 等宽数字字体
-  - [ ] 右键菜单六项（打开概览 / 暂停·恢复 / 立即提醒 / 设置 / 退出）+ 禁用态
-  - [ ] 非 macOS 点击弹菜单
-- [ ] **通知**：`tauri-plugin-notification`
-  - [ ] 保留"提交超时 8s 判失败"与 macOS 未授权文案（`coordinator.ts#L5-L10`）
-  - [ ] 通知点击 → 打开概览
-- [ ] **外观/系统事件**
+- [x] **覆盖层**（`coordinator.ts#L88-L122` → `src-tauri/src/reminders.rs`）
+  - [x] 每显示器一个 `WebviewWindow`：无边框、透明、`skipTaskbar`、不可移动/缩放
+    > 标签为 `overlay-<n>`（`n` 由进程内原子计数分配），加载 `index.html?surface=overlay`；声音宿主窗口标签为 `*#sound`、尺寸 1×1 且 `visible(false)`
+  - [x] 置顶层：`setAlwaysOnTop(true, 'screen-saver')` → Tauri `set_always_on_top`
+    > Tauri 的 `always_on_top(bool)` 不暴露窗口 level，覆盖层落在 `floating` 层而非 TS 的 `screen-saver` 层：**叠在普通全屏应用之上仍成立，但其他应用的全屏独占空间可能盖住覆盖层**。跨全屏空间沿用 Electron 的 `set_visible_on_all_workspaces(true)`（Tauri 已暴露）
+  - [x] `flash` 用 `show_inactive`，`mask` 可聚焦；非 mask 走 `set_ignore_cursor_events(true)`
+    > Tauri/tao **没有 `showInactive`**：`set_visible(true)` 走 `make_key_and_order_front_sync`。已用 `focusable(false)` 降低抢焦点概率，但仍可能让应用变成前台应用（偏差）
+    > `set_ignore_cursor_events(true)` 无 TS 的 `forward` 选项，非 mask 覆盖层完全不接收鼠标事件，与 TS 语义一致
+  - [x] `loadSurface` 的 URL 来源校验（`windows.ts` 的 `surfaceURLs` + `trustedSource`）→ Tauri capability/ACL 等价实现
+    > `capabilities/default.json` 的 `windows` 扩到 `["main", "overlay-*"]`，命令层用 `WebviewWindow` 参数拿到真实标签做归属校验（`overlay_state(label)` 反查会话），因此不再需要 `surfaceURLs` + `trustedSource` 的 URL 白名单
+  - [x] 保留 12s 就绪超时、热插拔 `refreshDisplays`；`render-process-gone`/`unresponsive` 等价事件
+    > 12s 就绪超时与热插拔逐屏重建（保留旧窗口复用、销毁被移除显示器上的窗口）已对齐
+    > **Tauri 未暴露渲染进程崩溃与无响应事件**，只能用 `WindowEvent::Destroyed` 兜底：非收尾路径下的销毁记「提醒窗口意外关闭」并让会话失败（偏差）
+  - [x] 会话状态机与锁序纪律
+    > 会话状态用内部 `Mutex<Option<Session>>`，窗口创建/销毁、定时器回调、结算回调一律在**释放锁之后**执行：覆盖层 `Destroyed` 回调与持锁方在同一线程时会互相等待，必须先把窗口从会话登记中摘除再 `destroy()`
+- [x] **通知**：`tauri-plugin-notification`
+  - [x] 提交超时 8s 判失败与 macOS 未授权文案（`coordinator.ts#L5-L10`）
+    > **两处都无法照搬**：桌面版 `permission_state()` 恒为 `Granted`（无未授权文案场景）；macOS 上 `show()` 在后台任务里派发，OS 层失败被 `let _ = notification.show()` 吞掉，`Ok` 即视为「已提交」，因此 8 秒未确认保护被替换为「提交即记录成功」
+  - [x] 通知点击 → 打开概览
+    > `Notification::on_action` 捕获 `action_id() == "tap"`，回调在后台线程执行，经 `run_on_main_thread` 投递后复用 `show_main`
+    > **通知无法撤回**：TS 在视觉通道失败时会 `close()` 掉通知，Tauri 在 macOS/Windows 上不能移除已显示的通知（偏差）
+- [ ] **外观/系统事件**（Phase 4 步骤 3）
   - [ ] `nativeTheme.shouldUseDarkColors` / `prefersReducedTransparency` → Tauri window theme / `NSAppearance`
   - [ ] `systemPreferences.getAnimationSettings().prefersReducedMotion` → 原生查询
   - [ ] `powerMonitor` 的 suspend/resume/lock-screen/unlock-screen/user-did-resign/become-active → macOS `NSWorkspace` 通知（sleep/wake、`com.apple.screenIsLocked` 分布式通知）

@@ -208,36 +208,7 @@ impl PlatformAdapter {
 
     /// 当前显示器列表；Electron 的 `bounds` 是逻辑点，因此把物理像素除以缩放因子。
     fn displays(app: &AppHandle) -> Vec<DisplayInfo> {
-        let primary = app.primary_monitor().ok().flatten();
-        app.available_monitors()
-            .unwrap_or_default()
-            .iter()
-            .enumerate()
-            .map(|(index, monitor)| {
-                let scale = if monitor.scale_factor() > 0.0 { monitor.scale_factor() } else { 1.0 };
-                let position = monitor.position();
-                let size = monitor.size();
-                let label = monitor
-                    .name()
-                    .filter(|name| !name.is_empty())
-                    .map(|name| name.to_string())
-                    .unwrap_or_else(|| format!("显示器 {}", index + 1));
-                DisplayInfo {
-                    id: format!("display-{index}"),
-                    label,
-                    primary: primary
-                        .as_ref()
-                        .is_some_and(|monitor| monitor.position() == position && monitor.size() == size),
-                    bounds: DisplayBounds {
-                        x: position.x as f64 / scale,
-                        y: position.y as f64 / scale,
-                        width: size.width as f64 / scale,
-                        height: size.height as f64 / scale,
-                    },
-                    scale_factor: scale,
-                }
-            })
-            .collect()
+        display_list(app)
     }
 
     /// 系统明暗主题；窗口不可用时回退为浅色。
@@ -253,4 +224,52 @@ impl Default for PlatformAdapter {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// 把原生显示器映射成契约描述；`index` 用于生成稳定的标识。
+fn describe(index: usize, monitor: &tauri::Monitor, primary: Option<&tauri::Monitor>) -> DisplayInfo {
+    let scale = if monitor.scale_factor() > 0.0 { monitor.scale_factor() } else { 1.0 };
+    let position = monitor.position();
+    let size = monitor.size();
+    let label = monitor
+        .name()
+        .filter(|name| !name.is_empty())
+        .map(|name| name.to_string())
+        .unwrap_or_else(|| format!("显示器 {}", index + 1));
+    DisplayInfo {
+        id: format!("display-{index}"),
+        label,
+        primary: primary.is_some_and(|item| item.position() == position && item.size() == size),
+        bounds: DisplayBounds {
+            x: position.x as f64 / scale,
+            y: position.y as f64 / scale,
+            width: size.width as f64 / scale,
+            height: size.height as f64 / scale,
+        },
+        scale_factor: scale,
+    }
+}
+
+/// 当前显示器列表；Electron 的 `bounds` 是逻辑点，因此把物理像素除以缩放因子。
+///
+/// 覆盖层按屏幕逐块铺开，因此这里对协调器公开。
+pub(crate) fn display_list(app: &AppHandle) -> Vec<DisplayInfo> {
+    let primary = app.primary_monitor().ok().flatten();
+    app.available_monitors()
+        .unwrap_or_default()
+        .iter()
+        .enumerate()
+        .map(|(index, monitor)| describe(index, monitor, primary.as_ref()))
+        .collect()
+}
+
+/// 主显示器描述；系统未提供主显示器时返回 `None`。
+pub(crate) fn primary_display(app: &AppHandle) -> Option<DisplayInfo> {
+    let primary = app.primary_monitor().ok().flatten()?;
+    let index = app
+        .available_monitors()
+        .unwrap_or_default()
+        .iter()
+        .position(|monitor| monitor.position() == primary.position() && monitor.size() == primary.size())?;
+    Some(describe(index, &primary, Some(&primary)))
 }

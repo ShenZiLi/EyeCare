@@ -21,16 +21,17 @@ use tauri::{
     WebviewWindowBuilder, WindowEvent,
 };
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+use tauri_plugin_notification::NotificationExt;
 use uuid::Uuid;
 
 use autostart::{AutostartContext, file_exists, prepare_login_change, system_backend};
 use contracts::{
-    AppError, Capability, CapabilityState, CommandResult, EngineUpdate, OverlayState, ReminderEvent, ReminderKind,
-    RuntimeSnapshot, RuntimeStatus, SettingsV2, VisualMode, resolve_settings,
+    AppError, Capability, CapabilityState, CommandResult, EngineEffect, EngineUpdate, OverlayState, ReminderEvent,
+    ReminderKind, RuntimeSnapshot, RuntimeStatus, SettingsV2, Theme, VisualMode, resolve_settings,
 };
 use engine::TimerEngine;
 use platform::{ActivitySource, PlatformAdapter};
-use reminders::ReminderCoordinator;
+use reminders::{ReminderCoordinator, Settlement};
 use settings::validation::validate_settings;
 use settings::{SettingsStore, save_with_login};
 
@@ -63,12 +64,14 @@ pub struct AppState {
     adapter: Mutex<PlatformAdapter>,
     /// 设置仓库；`save_settings` 命令经由 `save_with_login` 串行落盘。
     store: Mutex<SettingsStore>,
-    /// 提醒协调器；覆盖层窗口与通知在 Phase 4 补入。
-    coordinator: Mutex<ReminderCoordinator>,
+    /// 提醒协调器；自带内部互斥锁，调用方无需再套一层。
+    coordinator: ReminderCoordinator,
     /// 托盘呈现层；只在主线程读写，见 `tray.rs` 的线程约束说明。
     tray: Mutex<tray::TrayPresenter>,
     /// 托盘创建是否成功；采样与快照组装只读这一个原子标记，避免与主线程互等。
     tray_available: AtomicBool,
+    /// 上一次同步给覆盖层的外观三元组（主题:减少动效:降低透明度）。
+    appearance_key: Mutex<String>,
     /// 命令门控；对齐 Electron 的 `commandQueue`，同一时刻只执行一条 IPC 命令。
     command_gate: Mutex<()>,
     /// 启动期告警（目录迁移、设置恢复），随每份快照下发给前端。
@@ -108,9 +111,10 @@ impl AppState {
             engine: Mutex::new(TimerEngine::new(settings, revision, 0)),
             adapter: Mutex::new(PlatformAdapter::new()),
             store: Mutex::new(store),
-            coordinator: Mutex::new(ReminderCoordinator::new()),
+            coordinator: ReminderCoordinator::new(),
             tray: Mutex::new(tray::TrayPresenter::new()),
             tray_available: AtomicBool::new(false),
+            appearance_key: Mutex::new(String::new()),
             command_gate: Mutex::new(()),
             startup_warnings: Mutex::new(startup_warnings),
             settings_requested: AtomicBool::new(false),
@@ -162,24 +166,159 @@ fn presented_snapshot(state: &AppState, snapshot: &RuntimeSnapshot) -> RuntimeSn
     presented
 }
 
-/// 把一份快照推送给所有窗口，并顺带刷新托盘。
+/// 推送引擎更新：快照、托盘、外观同步、引擎副作用与受限状态下的预览撤销，
+/// 对应 Electron 的 `publish`（`app/main/index.ts#L42-L56`）。
 ///
 /// 托盘刷新必须回到主线程：tauri 的托盘 setter 会阻塞等待主线程执行，
-/// 若在采样线程直接调用，会与主线程上的托盘菜单回调互相等待。
-fn emit_snapshot(handle: &AppHandle, state: &AppState, snapshot: &RuntimeSnapshot) {
-    let presented = presented_snapshot(state, snapshot);
-    let _ = handle.emit(SNAPSHOT_EVENT, &presented);
+/// 若在采样线程直接调用，会与主线程上的托盘菜单回调互相等待。`on_main_thread`
+/// 在主线程上调用时同步执行，因此这里不需要区分调用来源。
+fn publish(handle: &AppHandle, state: &AppState, update: &EngineUpdate) {
+    let presented = presented_snapshot(state, &update.snapshot);
+    // 对齐 Electron：快照只发给主窗口，覆盖层通过自己的状态通道接收。
+    if let Some(window) = handle.get_webview_window(MAIN_WINDOW) {
+        let _ = window.emit(SNAPSHOT_EVENT, &presented);
+    }
     let tray_handle = handle.clone();
+    let tray_snapshot = presented.clone();
     let _ = handle.run_on_main_thread(move || {
         let tray_state = tray_handle.state::<AppState>();
-        lock(&tray_state.tray).update(&tray_handle, &presented);
+        lock(&tray_state.tray).update(&tray_handle, &tray_snapshot);
     });
+    // 外观三元组变化时让覆盖层跟随系统主题与无障碍偏好。
+    let appearance = format!(
+        "{}:{}:{}",
+        theme_key(presented.theme),
+        presented.reduce_motion,
+        presented.reduce_transparency
+    );
+    let changed = {
+        let mut key = lock(&state.appearance_key);
+        let changed = *key != appearance;
+        *key = appearance;
+        changed
+    };
+    if changed {
+        state.coordinator.sync_appearance(handle);
+    }
+    for effect in &update.effects {
+        match effect {
+            EngineEffect::Cancel { id, .. } => state.coordinator.cancel(handle, Some(id)),
+            EngineEffect::Present { reminder } => {
+                // 预览被新的提醒取代时先撤销预览，对应 TS 的 `coordinator.cancel()`。
+                if state.coordinator.current_kind() == Some(ReminderKind::Preview) {
+                    state.coordinator.cancel(handle, None);
+                }
+                if let Err(error) = state.coordinator.present(handle, reminder.clone()) {
+                    log::warn!("提醒呈现失败：{}（{}）", error.message, error.code);
+                }
+            }
+            EngineEffect::RestConfirmed { .. } => {}
+        }
+    }
+    // 预览在受限状态下立即撤销，对应 `app/main/index.ts#L55`。
+    let blocked = matches!(
+        presented.status,
+        RuntimeStatus::Locked | RuntimeStatus::Sleeping | RuntimeStatus::CapabilityError | RuntimeStatus::LongIdle
+    );
+    if blocked && state.coordinator.current_kind() == Some(ReminderKind::Preview) {
+        state.coordinator.cancel(handle, None);
+    }
+}
+
+/// 只推快照、不处理副作用；对应 Electron 里不带 `update` 的 `publish()`。
+fn emit_snapshot(handle: &AppHandle, state: &AppState, snapshot: &RuntimeSnapshot) {
+    publish(handle, state, &EngineUpdate { snapshot: snapshot.clone(), effects: Vec::new() });
 }
 
 /// 推送引擎更新并返回对外快照，对应 Electron 的 `apply`。
 fn apply(handle: &AppHandle, state: &AppState, update: &EngineUpdate) -> CommandResult<RuntimeSnapshot> {
-    emit_snapshot(handle, state, &update.snapshot);
+    publish(handle, state, update);
     CommandResult::success(presented_snapshot(state, &update.snapshot))
+}
+
+/// 外观三元组里的主题取值，与 TS 的 `snapshot.theme` 字面量一致。
+fn theme_key(theme: Theme) -> &'static str {
+    match theme {
+        Theme::Dark => "dark",
+        Theme::Light => "light",
+    }
+}
+
+/// 在主线程上执行任务并等待结果。
+///
+/// tauri 的 `run_on_main_thread` 在**主线程上调用时会同步执行**（`tauri-runtime-wry`
+/// 的 `send_user_message` 直接调用处理函数），因此同一条路径既能承载命令侧的同步
+/// 调用，也能承载采样线程的跨线程投递。窗口创建与销毁必须走这里。
+pub(crate) fn on_main_thread<T, F>(handle: &AppHandle, task: F) -> Option<T>
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
+    let (sender, receiver) = std::sync::mpsc::channel();
+    if let Err(error) = handle.run_on_main_thread(move || {
+        let _ = sender.send(task());
+    }) {
+        log::warn!("主线程任务投递失败：{error}");
+        return None;
+    }
+    receiver.recv().ok()
+}
+
+/// 供协调器读取对外快照，对应注入给 TS 协调器的 `snapshot`。
+pub(crate) fn coordinator_snapshot(handle: &AppHandle) -> RuntimeSnapshot {
+    let state = handle.state::<AppState>();
+    let snapshot = lock(&state.engine).get_snapshot();
+    presented_snapshot(state.inner(), &snapshot)
+}
+
+/// 协调器在创建窗口或提交通知前重新确认系统状态，对应注入的 `canPresent`。
+pub(crate) fn coordinator_can_present(handle: &AppHandle, event: &ReminderEvent) -> bool {
+    let snapshot = coordinator_snapshot(handle);
+    let safe = !matches!(
+        snapshot.status,
+        RuntimeStatus::Locked
+            | RuntimeStatus::Sleeping
+            | RuntimeStatus::CapabilityError
+            | RuntimeStatus::Starting
+            | RuntimeStatus::LongIdle
+    );
+    if !safe {
+        return false;
+    }
+    event.kind == ReminderKind::Preview || snapshot.current_reminder_id.as_deref() == Some(event.id.as_str())
+}
+
+/// 把协调器的会话结论交回编排层，对应注入的 `finished` 与 `previewChanged`。
+pub(crate) fn apply_settlement(handle: &AppHandle, settlement: Settlement) {
+    let state = handle.state::<AppState>();
+    match settlement {
+        Settlement::Finished { event, results } => {
+            // 对齐 `app/main/index.ts#L232-L233`：真实提醒先采样，再让引擎结算。
+            tick(handle);
+            let update = lock(&state.engine).settle_reminder(&event.id, event.generation, &results, None);
+            let _ = apply(handle, state.inner(), &update);
+        }
+        Settlement::PreviewStarted { id } => {
+            *lock(&state.current_preview_id) = Some(id);
+            *lock(&state.latest_preview_result) = None;
+            state.preview_sequence.fetch_add(1, Ordering::SeqCst);
+            let update = {
+                let snapshot = lock(&state.engine).get_snapshot();
+                EngineUpdate { snapshot, effects: Vec::new() }
+            };
+            publish(handle, state.inner(), &update);
+        }
+        Settlement::PreviewSettled { result } => {
+            *lock(&state.current_preview_id) = None;
+            *lock(&state.latest_preview_result) = Some(result);
+            state.preview_sequence.fetch_add(1, Ordering::SeqCst);
+            let update = {
+                let snapshot = lock(&state.engine).get_snapshot();
+                EngineUpdate { snapshot, effects: Vec::new() }
+            };
+            publish(handle, state.inner(), &update);
+        }
+    }
 }
 
 /// 失败但仍需以统一错误结构返回的辅助函数。
@@ -375,7 +514,7 @@ fn show_main(handle: &AppHandle, settings: bool) {
 fn quit_app(handle: &AppHandle) {
     let state = handle.state::<AppState>();
     state.quitting.store(true, Ordering::SeqCst);
-    lock(&state.coordinator).cancel(None);
+    state.coordinator.cancel(handle, None);
     tray::TrayPresenter::dispose(handle);
     handle.exit(0);
 }
@@ -440,11 +579,8 @@ fn tick(handle: &AppHandle) {
         };
     }
     let update = lock(&state.engine).accept_sample(sample);
-    if !update.effects.is_empty() {
-        // 覆盖层与通知尚未迁移（Phase 4），先记录以免副作用被静默丢弃。
-        log::info!("定时引擎产生副作用，等待 Phase 4 处理：{:?}", update.effects);
-    }
-    emit_snapshot(handle, state.inner(), &update.snapshot);
+    // 引擎副作用（呈现/取消提醒）在这里真正派发，覆盖层与通知随之创建或销毁。
+    publish(handle, state.inner(), &update);
 }
 
 /// 采样并判定是否允许呈现新提醒，对应 Electron 的 `checkEligible`。
@@ -454,7 +590,7 @@ fn check_eligible(handle: &AppHandle, state: &AppState, preview: bool) -> Result
         let current = lock(&state.engine).get_snapshot();
         presented_snapshot(state, &current)
     };
-    if lock(&state.coordinator).current().is_some() || snapshot.current_reminder_id.is_some() {
+    if state.coordinator.is_busy() || snapshot.current_reminder_id.is_some() {
         return Err(AppError::new("REMINDER_BUSY", "已有提醒，请先完成当前提醒"));
     }
     let blocked = if preview {
@@ -532,7 +668,7 @@ fn pause_action(handle: &AppHandle) -> CommandResult<RuntimeSnapshot> {
     let state = handle.state::<AppState>();
     let _gate = gate(&state);
     tick(handle);
-    lock(&state.coordinator).cancel(None);
+    state.coordinator.cancel(handle, None);
     let update = lock(&state.engine).pause();
     apply(handle, state.inner(), &update)
 }
@@ -589,14 +725,14 @@ fn resolve_reminder(
         Ok(value) => value,
         Err(error) => return CommandResult::failure(error),
     };
-    let Some(overlay) = lock(&state.coordinator).overlay_state(window.label()) else {
+    let Some(overlay) = state.coordinator.overlay_state(window.label()) else {
         return failure("STALE_REMINDER", "此提醒已结束");
     };
     if overlay.event.id != id || overlay.event.generation != generation || overlay.event.settings.reminder.visual != VisualMode::Mask {
         return failure("STALE_REMINDER", "此提醒已结束");
     }
     if overlay.event.kind == ReminderKind::Preview {
-        lock(&state.coordinator).resolve_preview(&id, generation, action);
+        state.coordinator.resolve_preview(&handle, &id, generation, action);
         let snapshot = {
             let current = lock(&state.engine).get_snapshot();
             presented_snapshot(state.inner(), &current)
@@ -636,7 +772,7 @@ fn preview(handle: AppHandle, state: State<'_, AppState>, settings: Option<Value
         screen_ids: snapshot.displays.iter().map(|display| display.id.clone()).collect(),
         created_at_ms: 0,
     };
-    match lock(&state.coordinator).present(event) {
+    match state.coordinator.present(&handle, event) {
         Ok(id) => CommandResult::success(id),
         Err(error) => CommandResult::failure(error),
     }
@@ -644,12 +780,9 @@ fn preview(handle: AppHandle, state: State<'_, AppState>, settings: Option<Value
 
 /// 取消进行中的预览，对应 `EyeCareBridge.cancelPreview`。
 #[tauri::command]
-fn cancel_preview(state: State<'_, AppState>) -> CommandResult<()> {
+fn cancel_preview(handle: AppHandle, state: State<'_, AppState>) -> CommandResult<()> {
     let _gate = gate(&state);
-    let mut coordinator = lock(&state.coordinator);
-    if coordinator.current().map(|event| event.kind) == Some(ReminderKind::Preview) {
-        coordinator.cancel(None);
-    }
+    state.coordinator.cancel_preview(&handle);
     CommandResult::success(())
 }
 
@@ -657,7 +790,7 @@ fn cancel_preview(state: State<'_, AppState>) -> CommandResult<()> {
 #[tauri::command]
 fn get_overlay(state: State<'_, AppState>, window: WebviewWindow) -> Option<OverlayState> {
     let _gate = gate(&state);
-    lock(&state.coordinator).overlay_state(window.label())
+    state.coordinator.overlay_state(window.label())
 }
 
 /// 覆盖层窗口就绪，对应 `EyeCareBridge.overlayReady`。
@@ -675,11 +808,11 @@ fn overlay_ready(
         Err(error) => return CommandResult::failure(error),
     };
     tick(&handle);
-    if !lock(&state.coordinator).ready(window.label(), &id, generation) {
+    if !state.coordinator.ready(&handle, window.label(), &id, generation) {
         return failure("STALE_REMINDER", "提醒已取消");
     }
-    if lock(&state.coordinator).current().map(|event| event.kind) == Some(ReminderKind::Real) {
-        let channels = lock(&state.coordinator).channels();
+    if state.coordinator.current_kind() == Some(ReminderKind::Real) {
+        let channels = state.coordinator.channels();
         let update = lock(&state.engine).record_reminder_channels(&id, generation, &channels);
         emit_snapshot(&handle, state.inner(), &update.snapshot);
     }
@@ -701,7 +834,7 @@ fn overlay_sound_started(
         Err(error) => return CommandResult::failure(error),
     };
     tick(&handle);
-    if !lock(&state.coordinator).sound_started(window.label(), &id, generation) {
+    if !state.coordinator.sound_started(&handle, window.label(), &id, generation) {
         return failure("STALE_REMINDER", "声音提醒已取消");
     }
     CommandResult::success(())
@@ -727,13 +860,13 @@ fn overlay_finished(
         Err(error) => return CommandResult::failure(error),
     };
     tick(&handle);
-    let overlay = lock(&state.coordinator).overlay_state(window.label());
-    if !lock(&state.coordinator).report(window.label(), &id, generation, &results) {
+    let overlay = state.coordinator.overlay_state(window.label());
+    if !state.coordinator.report(&handle, window.label(), &id, generation, &results) {
         return failure("STALE_REMINDER", "提醒已结束");
     }
     let is_real = overlay.as_ref().map(|state| state.event.kind) == Some(ReminderKind::Real);
-    if is_real && lock(&state.coordinator).matches(&id, generation) {
-        let channels = lock(&state.coordinator).channels();
+    if is_real && state.coordinator.matches(&id, generation) {
+        let channels = state.coordinator.channels();
         let update = lock(&state.engine).record_reminder_channels(&id, generation, &channels);
         emit_snapshot(&handle, state.inner(), &update.snapshot);
     }
@@ -781,6 +914,8 @@ pub fn run() {
         }))
         // 一次性「后台继续运行」说明与后续的设置冲突提示都走系统原生对话框。
         .plugin(tauri_plugin_dialog::init())
+        // 通知型提醒；点击通知（tap）后把主窗口带到前台。
+        .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
             get_snapshot,
             settings_requested,
@@ -806,6 +941,20 @@ pub fn run() {
             }
             app.manage(load_state(app));
             let handle = app.handle().clone();
+            // 对齐 Electron 的 `notice.on('click', openHome)`：点击通知回到主窗口。
+            // 回调在后台线程执行，因此窗口动作必须投递回主线程。
+            {
+                let notify_handle = handle.clone();
+                if let Err(error) = handle.notification().on_action(move |action| {
+                    if action.action_id() == "tap" {
+                        let click_handle = notify_handle.clone();
+                        let inner = click_handle.clone();
+                        let _ = click_handle.run_on_main_thread(move || show_main(&inner, false));
+                    }
+                }) {
+                    log::warn!("通知点击回调注册失败：{error}");
+                }
+            }
             let tray_available = tray::TrayPresenter::create(&handle);
             if !tray_available {
                 log::warn!("托盘创建失败，主窗口将保持可访问");

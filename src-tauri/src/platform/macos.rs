@@ -277,7 +277,8 @@ mod tests {
         let combined = provider.combined_idle_ms().expect("合并输入空闲读取失败");
         let mouse = provider.mouse_idle_ms().expect("鼠标空闲读取失败").expect("鼠标来源应返回数值");
         assert!(mouse.is_finite() && mouse >= 0.0, "鼠标空闲为 {mouse}");
-        // 合并事件覆盖鼠标事件，因此鼠标空闲不会更早。
-        assert!(mouse <= combined + 1000.0, "鼠标空闲 {mouse} 与合并空闲 {combined} 不一致");
+        // 鼠标事件是合并输入的子集：键盘事件更近时鼠标空闲必然更大，只有浮点与采样
+        // 抖动会让它略小于合并空闲（对齐 `native.ts` 的 `Math.min(鼠标事件)` 语义）。
+        assert!(mouse + 1000.0 >= combined, "鼠标空闲 {mouse} 早于合并空闲 {combined}");
     }
 }
