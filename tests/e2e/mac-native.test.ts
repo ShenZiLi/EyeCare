@@ -126,13 +126,15 @@ test('macOS close keeps the tray while hiding the Dock and reopening restores fo
 
     await closeMain();
     await expect.poll(windowState).toMatchObject({ visible: false, dock: false });
-    const previewWindow = desktop.waitForEvent('window');
-    expect((await page.evaluate(async () => {
+    const previewResult = await page.evaluate(async () => {
       const { settings } = await window.eyeCare.getSnapshot();
       settings.reminder = { visual: 'mask', soundEnabled: false };
       return window.eyeCare.preview(settings);
-    })).ok).toBe(true);
-    const overlay = await previewWindow;
+    });
+    expect(previewResult, `Background preview result: ${JSON.stringify(previewResult)}`).toMatchObject({ ok: true });
+    const previewWindow = () => desktop.windows().find(candidate => new URL(candidate.url() || 'about:blank').searchParams.get('surface') === 'overlay');
+    await expect.poll(() => !!previewWindow()).toBe(true);
+    const overlay = previewWindow()!;
     await expect(overlay.getByRole('button', { name: '知道了', exact: true })).toBeVisible();
     expect(await windowState()).toMatchObject({ visible: false, dock: false });
     expect((await page.evaluate(() => window.eyeCare.cancelPreview())).ok).toBe(true);
