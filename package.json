@@ -8,6 +8,10 @@
   "license": "MIT",
   "scripts": {
     "start": "electron-forge start",
+    "vite:dev": "vite --config vite.renderer.config.ts --port 5173 --strictPort",
+    "vite:build": "vite build --config vite.renderer.config.ts",
+    "tauri:dev": "mise exec -- npx tauri dev",
+    "tauri:build": "mise exec -- npx tauri build",
     "package": "electron-forge package",
     "make": "electron-forge make",
     "typecheck": "tsc --noEmit",
@@ -25,6 +29,7 @@
     "forge": "./forge.config.ts"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.12.4",
     "electron-squirrel-startup": "1.0.1",
     "koffi": "3.3.3",
     "lucide-react": "0.468.0",
@@ -47,6 +52,7 @@
     "@electron-forge/plugin-vite": "7.11.1",
     "@electron-forge/shared-types": "7.11.1",
     "@playwright/test": "1.56.1",
+    "@tauri-apps/cli": "^2.12.3",
     "@types/electron-squirrel-startup": "1.0.2",
     "@types/node": "24.7.2",
     "@types/react": "19.1.16",

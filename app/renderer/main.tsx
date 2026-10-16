@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client';
+import './bridge';
 import { App } from './App';
 import { Overlay } from './Overlay';
 import './styles.css';
