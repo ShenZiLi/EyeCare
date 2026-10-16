@@ -328,3 +328,25 @@ Rewrote Chinese README following GitHub official README guidance: product/use/co
 ### Status
 
 [OK] **Completed**
+
+
+## Session 13: 修复柔和闪屏首帧与动画结束时序
+<!-- trellis-session: v=2 fp=a37df0dad077b172 -->
+
+**Date**: 2026-10-16
+**Task**: 修复柔和闪屏首帧与动画结束时序
+**Branch**: `dev-tauri`
+
+### Summary
+
+提醒改为解析时即透明的独立入口；原生显示前准备零透明度首帧；正常闪屏按实际动画完成回报，保留静态降级及原生超时保护。40项前端和75项Rust测试、类型检查、lint与Tauri应用构建通过。浏览器逐帧验证完成时opacity为0，用户已确认问题修复。并行lib.rs与迁移清单改动未提交。用户授权推送dev-tauri。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `742b586` | fix(reminder): 修复柔和闪屏首帧闪烁与提前结束 |
+
+### Status
+
+[OK] **Completed**

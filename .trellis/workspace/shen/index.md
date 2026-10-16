@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 12
+- **Total Sessions**: 13
 - **Last Active**: 2026-10-16
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~330 | Active |
+| `journal-1.md` | ~352 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 13 | 2026-10-16 | 修复柔和闪屏首帧与动画结束时序 | `742b586` | `dev-tauri` |
 | 12 | 2026-10-16 | 银白与黑曜液态玻璃主题重构 | `dbec36a` | `dev-tauri` |
 | 11 | 2026-10-14 | GitHub README | `7dc7e1b` | `dev` |
 | 10 | 2026-10-14 | 600px default window | `8fed8c1` | `dev` |
