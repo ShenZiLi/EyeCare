@@ -4,6 +4,10 @@
 # macOS
 .DS_Store
 
+# Rust / Tauri
+src-tauri/target/
+target/
+
 node_modules/
 .vite/
 out/
