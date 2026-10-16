@@ -4,58 +4,94 @@
 
 pub mod contracts;
 pub mod engine;
+pub mod platform;
 
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Mutex,
-};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, MutexGuard};
+use std::time::Duration;
+
+use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
 use contracts::{default_settings, RuntimeSnapshot};
 use engine::TimerEngine;
-use tauri::{Manager, State, WebviewUrl, WebviewWindowBuilder};
+use platform::{ActivitySource, PlatformAdapter};
 
 /// 主窗口标签，与 `capabilities/default.json` 的 `windows` 项必须一致。
-const MAIN_WINDOW: &str = "main";
+pub(crate) const MAIN_WINDOW: &str = "main";
+
+/// 快照推送事件名，与 `app/renderer/bridge.ts` 的订阅名一致。
+const SNAPSHOT_EVENT: &str = "eyecare:snapshot-updated";
+
+/// 采样周期，对齐 `app/main/index.ts#L245` 的 1 秒 `setInterval`。
+const SAMPLE_INTERVAL: Duration = Duration::from_secs(1);
 
 /// 应用级共享状态。
 ///
-/// Phase 1 只容纳定时引擎，Phase 3 起会逐步补入平台桥、提醒协调器、托盘等部件。
+/// Phase 3 容纳定时引擎与平台适配层；Phase 4 起会补入协调器、托盘等部件。
 pub struct AppState {
-    /// 定时引擎；命令与采样循环共用同一把锁。
+    /// 定时引擎；采样循环与命令共用同一把锁。
     engine: Mutex<TimerEngine>,
+    /// 平台适配层；采样循环独占，命令侧只读取能力报告。
+    adapter: Mutex<PlatformAdapter>,
     /// 「打开设置页」的一次性请求标记，由托盘或第二次启动置位。
     settings_requested: AtomicBool,
 }
 
 impl AppState {
-    /// 以出厂默认设置创建状态。
-    fn new(now_ms: i64) -> Self {
+    /// 以出厂默认设置与当前平台能力创建状态。
+    fn new() -> Self {
         Self {
-            engine: Mutex::new(TimerEngine::new(default_settings(), 0, now_ms)),
+            // 与 `app/main/index.ts#L226` 一致：构造时不给引擎时钟偏置，
+            // 首个采样会同时校准 `now` 与 `deadline`。
+            engine: Mutex::new(TimerEngine::new(default_settings(), 0, 0)),
+            adapter: Mutex::new(PlatformAdapter::new()),
             settings_requested: AtomicBool::new(false),
         }
     }
 }
 
-/// 当前墙钟毫秒数。
-///
-/// 仅作为 Phase 1 的占位时钟；Phase 3 会换成跨睡眠连续的平台单调时钟，
-/// 定时引擎对时钟连续性的要求见 `engine.rs` 的 `SAMPLE_GAP_WARNING_MS`。
-fn now_ms() -> i64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|elapsed| elapsed.as_millis() as i64).unwrap_or(0)
+/// 取得锁；即使上一次持有者 panic 也继续使用内部状态，避免一次采样异常拖垮整个应用。
+fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 /// 读取当前运行态快照，对应 `EyeCareBridge.getSnapshot`。
 #[tauri::command]
 fn get_snapshot(state: State<'_, AppState>) -> RuntimeSnapshot {
-    state.engine.lock().expect("定时引擎状态被污染").get_snapshot()
+    lock(&state.engine).get_snapshot()
 }
 
 /// 消费「打开设置页」请求，对应 `EyeCareBridge.subscribeOpenSettings` 的初始拉取。
 #[tauri::command]
 fn settings_requested(state: State<'_, AppState>) -> bool {
     state.settings_requested.swap(false, Ordering::SeqCst)
+}
+
+/// 采样一次并推进引擎，随后把快照推送给所有窗口。
+fn tick(handle: &AppHandle) {
+    let sample = {
+        let state = handle.state::<AppState>();
+        lock(&state.adapter).sample(handle, ActivitySource::Combined)
+    };
+    let update = {
+        let state = handle.state::<AppState>();
+        lock(&state.engine).accept_sample(sample)
+    };
+    if !update.effects.is_empty() {
+        // 覆盖层与通知尚未迁移（Phase 4），先记录以免副作用被静默丢弃。
+        log::info!("定时引擎产生副作用，等待 Phase 4 处理：{:?}", update.effects);
+    }
+    let _ = handle.emit(SNAPSHOT_EVENT, update.snapshot);
+}
+
+/// 常驻采样循环；随进程退出而终止，无需显式停止。
+fn spawn_sampler(handle: AppHandle) {
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(SAMPLE_INTERVAL);
+            tick(&handle);
+        }
+    });
 }
 
 /// 启动 Tauri 应用。
@@ -76,7 +112,7 @@ pub fn run() {
                     tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build(),
                 )?;
             }
-            app.manage(AppState::new(now_ms()));
+            app.manage(AppState::new());
             // 尺寸与标题对齐 `app/main/index.ts#L93` 的 BrowserWindow 配置。
             // URL 带 `?surface=main`，与 `app/renderer/main.tsx#L7` 的读取约定一致。
             WebviewWindowBuilder::new(
@@ -88,6 +124,7 @@ pub fn run() {
             .inner_size(600.0, 500.0)
             .min_inner_size(600.0, 500.0)
             .build()?;
+            spawn_sampler(app.handle().clone());
             Ok(())
         })
         .run(tauri::generate_context!())
