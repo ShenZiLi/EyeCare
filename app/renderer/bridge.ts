@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import type { ChannelResult, EyeCareBridge, OverlayState, ReminderAction, Result, RuntimeSnapshot, SettingsV2 } from '../shared/contracts';
+import type { ChannelResult, EyeCareBridge, OverlayState, Result, RuntimeSnapshot, SettingsV2 } from '../shared/contracts';
 
 /**
  * Tauri 侧的 `EyeCareBridge` 实现。
