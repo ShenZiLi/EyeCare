@@ -9,19 +9,24 @@ pub mod ipc;
 pub mod platform;
 pub mod reminders;
 pub mod settings;
+pub mod tray;
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
-use tauri::{App, AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri::{
+    App, AppHandle, CloseRequestApi, Emitter, Manager, RunEvent, State, WebviewUrl, WebviewWindow,
+    WebviewWindowBuilder, WindowEvent,
+};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use uuid::Uuid;
 
 use autostart::{AutostartContext, file_exists, prepare_login_change, system_backend};
 use contracts::{
-    AppError, CommandResult, EngineUpdate, OverlayState, ReminderEvent, ReminderKind, RuntimeSnapshot, RuntimeStatus,
-    SettingsV2, VisualMode, resolve_settings,
+    AppError, Capability, CapabilityState, CommandResult, EngineUpdate, OverlayState, ReminderEvent, ReminderKind,
+    RuntimeSnapshot, RuntimeStatus, SettingsV2, VisualMode, resolve_settings,
 };
 use engine::TimerEngine;
 use platform::{ActivitySource, PlatformAdapter};
@@ -41,10 +46,16 @@ const OPEN_SETTINGS_EVENT: &str = "eyecare:open-settings";
 /// 采样周期，对齐 `app/main/index.ts#L245` 的 1 秒 `setInterval`。
 const SAMPLE_INTERVAL: Duration = Duration::from_secs(1);
 
+/// Dock 图标两次可见性切换的最小间隔。
+///
+/// 对齐 `app/main/index.ts#L81-L83`：系统会忽略紧接着 `Dock.show` 的 `Dock.hide`，
+/// 隐藏动作必须等到 `Dock.show` 的原生过渡结束后再执行。
+const DOCK_TRANSITION_COOLDOWN: Duration = Duration::from_millis(1100);
+
 /// 应用级共享状态。
 ///
 /// Phase 3 容纳定时引擎与平台适配层；Phase 5 补入设置仓库；Phase 6 补入
-/// 命令层所需的协调器骨架、命令门控与预览态；Phase 4 起会补入托盘等部件。
+/// 命令层所需的协调器骨架、命令门控与预览态；Phase 4 补入托盘与窗口生命周期。
 pub struct AppState {
     /// 定时引擎；采样循环与命令共用同一把锁。
     engine: Mutex<TimerEngine>,
@@ -54,6 +65,10 @@ pub struct AppState {
     store: Mutex<SettingsStore>,
     /// 提醒协调器；覆盖层窗口与通知在 Phase 4 补入。
     coordinator: Mutex<ReminderCoordinator>,
+    /// 托盘呈现层；只在主线程读写，见 `tray.rs` 的线程约束说明。
+    tray: Mutex<tray::TrayPresenter>,
+    /// 托盘创建是否成功；采样与快照组装只读这一个原子标记，避免与主线程互等。
+    tray_available: AtomicBool,
     /// 命令门控；对齐 Electron 的 `commandQueue`，同一时刻只执行一条 IPC 命令。
     command_gate: Mutex<()>,
     /// 启动期告警（目录迁移、设置恢复），随每份快照下发给前端。
@@ -66,6 +81,22 @@ pub struct AppState {
     current_preview_id: Mutex<Option<String>>,
     /// 最近一次预览的最终结果。
     latest_preview_result: Mutex<Option<contracts::PreviewResult>>,
+    /// 退出标记；置位后关闭窗口不再拦截，托盘也随进程结束释放。
+    quitting: AtomicBool,
+    /// 主窗口是否「被期望可见」；隐藏去抖与 Dock 图标隐藏都依赖它。
+    main_window_wanted: AtomicBool,
+    /// 「关闭窗口后仍在后台运行」提示是否已展示过（每个进程仅一次）。
+    explained_background: AtomicBool,
+    /// 一次性后台提示是否仍在等待用户确认。
+    close_notice_pending: AtomicBool,
+    /// 主窗口可见性世代号；异步回调靠它判断请求是否已被后来的操作取代。
+    main_visibility_generation: AtomicU64,
+    /// macOS 上 Dock 图标当前是否已隐藏。
+    dock_hidden: AtomicBool,
+    /// 最近一次 Dock 可见性切换的毫秒时间戳（相对 `dock_epoch`）。
+    last_dock_transition_ms: AtomicU64,
+    /// 进程内单调时钟起点，等价于 `performance.now()` 的零点。
+    dock_epoch: Instant,
 }
 
 impl AppState {
@@ -78,13 +109,28 @@ impl AppState {
             adapter: Mutex::new(PlatformAdapter::new()),
             store: Mutex::new(store),
             coordinator: Mutex::new(ReminderCoordinator::new()),
+            tray: Mutex::new(tray::TrayPresenter::new()),
+            tray_available: AtomicBool::new(false),
             command_gate: Mutex::new(()),
             startup_warnings: Mutex::new(startup_warnings),
             settings_requested: AtomicBool::new(false),
             preview_sequence: AtomicU64::new(0),
             current_preview_id: Mutex::new(None),
             latest_preview_result: Mutex::new(None),
+            quitting: AtomicBool::new(false),
+            main_window_wanted: AtomicBool::new(false),
+            explained_background: AtomicBool::new(false),
+            close_notice_pending: AtomicBool::new(false),
+            main_visibility_generation: AtomicU64::new(0),
+            dock_hidden: AtomicBool::new(false),
+            last_dock_transition_ms: AtomicU64::new(0),
+            dock_epoch: Instant::now(),
         }
+    }
+
+    /// 相对 `dock_epoch` 的毫秒时间戳，等价于 Electron 的 `performance.now()`。
+    fn elapsed_ms(&self) -> u64 {
+        self.dock_epoch.elapsed().as_millis() as u64
     }
 }
 
@@ -99,19 +145,35 @@ fn gate(state: &AppState) -> MutexGuard<'_, ()> {
 }
 
 /// 组装对外快照，对应 Electron 的 `presentedSnapshot`
-/// （预览序号偏移 + 预览标识与结果 + 引擎告警 + 启动期告警）。
+/// （预览序号偏移 + 预览标识与结果 + 引擎告警 + 启动期告警 + 托盘能力降级）。
 fn presented_snapshot(state: &AppState, snapshot: &RuntimeSnapshot) -> RuntimeSnapshot {
     let mut presented = snapshot.clone();
     presented.sequence = snapshot.sequence + state.preview_sequence.load(Ordering::SeqCst);
     presented.current_preview_id = lock(&state.current_preview_id).clone();
     presented.latest_preview_result = lock(&state.latest_preview_result).clone();
     presented.warnings.extend(lock(&state.startup_warnings).iter().cloned());
+    if !state.tray_available.load(Ordering::SeqCst) {
+        // 对齐 `app/main/index.ts#L39`：没有托盘时主窗口必须保持可访问。
+        presented.capabilities.tray = Capability {
+            state: CapabilityState::Unsupported,
+            reason: "当前桌面未提供可用托盘，主窗口保持可访问".into(),
+        };
+    }
     presented
 }
 
-/// 把一份快照推送给所有窗口。
+/// 把一份快照推送给所有窗口，并顺带刷新托盘。
+///
+/// 托盘刷新必须回到主线程：tauri 的托盘 setter 会阻塞等待主线程执行，
+/// 若在采样线程直接调用，会与主线程上的托盘菜单回调互相等待。
 fn emit_snapshot(handle: &AppHandle, state: &AppState, snapshot: &RuntimeSnapshot) {
-    let _ = handle.emit(SNAPSHOT_EVENT, presented_snapshot(state, snapshot));
+    let presented = presented_snapshot(state, snapshot);
+    let _ = handle.emit(SNAPSHOT_EVENT, &presented);
+    let tray_handle = handle.clone();
+    let _ = handle.run_on_main_thread(move || {
+        let tray_state = tray_handle.state::<AppState>();
+        lock(&tray_state.tray).update(&tray_handle, &presented);
+    });
 }
 
 /// 推送引擎更新并返回对外快照，对应 Electron 的 `apply`。
@@ -123,6 +185,232 @@ fn apply(handle: &AppHandle, state: &AppState, update: &EngineUpdate) -> Command
 /// 失败但仍需以统一错误结构返回的辅助函数。
 fn failure<T>(code: &str, message: &str) -> CommandResult<T> {
     CommandResult::failure(AppError::new(code, message))
+}
+
+/// 托盘是否真的可用：既创建成功，最近一次采样的能力报告也确认托盘可用。
+///
+/// 对齐 `app/main/index.ts#L41` 的 `hasConfirmedTray`。
+fn has_confirmed_tray(state: &AppState) -> bool {
+    if !state.tray_available.load(Ordering::SeqCst) {
+        return false;
+    }
+    lock(&state.engine).get_snapshot().capabilities.tray.state == CapabilityState::Available
+}
+
+/// 创建主窗口并注册关闭拦截，对齐 `app/main/index.ts#L92-L114` 的窗口配置。
+fn create_main_window(handle: &AppHandle) -> tauri::Result<WebviewWindow> {
+    let window = WebviewWindowBuilder::new(handle, MAIN_WINDOW, WebviewUrl::App("index.html?surface=main".into()))
+        .title("EyeCare")
+        .inner_size(600.0, 500.0)
+        .min_inner_size(600.0, 500.0)
+        .visible(false)
+        .build()?;
+    let close_handle = handle.clone();
+    window.on_window_event(move |event| {
+        if let WindowEvent::CloseRequested { api, .. } = event {
+            on_main_close_requested(&close_handle, api);
+        }
+    });
+    Ok(window)
+}
+
+/// 主窗口关闭请求：托盘可用时改为隐藏窗口，否则放行关闭并让应用退出。
+///
+/// 对齐 `app/main/index.ts#L95-L112`，含一次性「后台继续运行」说明。
+fn on_main_close_requested(handle: &AppHandle, api: &CloseRequestApi) {
+    let state = handle.state::<AppState>();
+    if state.quitting.load(Ordering::SeqCst) || !has_confirmed_tray(&state) {
+        return;
+    }
+    api.prevent_close();
+    if state.close_notice_pending.load(Ordering::SeqCst) {
+        return;
+    }
+    let close_generation = state.main_visibility_generation.fetch_add(1, Ordering::SeqCst) + 1;
+    if state.explained_background.swap(true, Ordering::SeqCst) {
+        hide_main_after_close(handle, close_generation);
+        return;
+    }
+    state.close_notice_pending.store(true, Ordering::SeqCst);
+    let notice_handle = handle.clone();
+    handle
+        .dialog()
+        .message("关闭窗口后，护眼提醒会继续运行。")
+        .title("EyeCare 继续在后台运行")
+        .kind(MessageDialogKind::Info)
+        .buttons(MessageDialogButtons::OkCustom("知道了".into()))
+        .show(move |_| {
+            let notice_state = notice_handle.state::<AppState>();
+            notice_state.close_notice_pending.store(false, Ordering::SeqCst);
+            hide_main_after_close(&notice_handle, close_generation);
+        });
+}
+
+/// 关闭请求被拦下后隐藏主窗口；任何前置条件失效都直接放弃。
+fn hide_main_after_close(handle: &AppHandle, close_generation: u64) {
+    let state = handle.state::<AppState>();
+    if state.quitting.load(Ordering::SeqCst) {
+        return;
+    }
+    if close_generation != state.main_visibility_generation.load(Ordering::SeqCst) {
+        return;
+    }
+    if !has_confirmed_tray(&state) {
+        return;
+    }
+    let Some(window) = handle.get_webview_window(MAIN_WINDOW) else {
+        return;
+    };
+    state.main_window_wanted.store(false, Ordering::SeqCst);
+    let _ = window.hide();
+    hide_main_dock(handle);
+}
+
+/// 切换 macOS Dock 图标显隐。
+///
+/// `set_dock_visibility` 只在 macOS 存在，这里用平台分支包一层，
+/// 让窗口生命周期逻辑保持单一代码路径。
+#[cfg(target_os = "macos")]
+fn set_dock_visible(handle: &AppHandle, visible: bool) {
+    if let Err(error) = handle.set_dock_visibility(visible) {
+        log::warn!("Dock 图标显隐切换失败：{error}");
+    }
+}
+
+/// 非 macOS 平台没有 Dock 图标，显隐请求直接忽略。
+#[cfg(not(target_os = "macos"))]
+fn set_dock_visible(_handle: &AppHandle, _visible: bool) {}
+
+/// macOS 主窗口隐藏后同步隐藏 Dock 图标，对应 `app/main/index.ts#L75-L85`。
+///
+/// Electron 会忽略紧接着 `Dock.show` 的 `Dock.hide`，这里保持同样的 1100ms 冷却；
+/// 到点后重新校验窗口状态，因此重新打开窗口会自然取消这次隐藏（等价于 TS 的
+/// `cancelDockHide` 定时器）。
+///
+/// 整个判定统一回到主线程执行：窗口可见性与托盘状态只在主线程读取才准确，
+/// 从其它线程调用时会排在隐藏消息之后，避免读到过期的可见性。
+fn hide_main_dock(handle: &AppHandle) {
+    let main_handle = handle.clone();
+    let _ = handle.run_on_main_thread(move || hide_main_dock_on_main(&main_handle));
+}
+
+/// [`hide_main_dock`] 的主线程实现。
+fn hide_main_dock_on_main(handle: &AppHandle) {
+    if !cfg!(target_os = "macos") {
+        return;
+    }
+    let state = handle.state::<AppState>();
+    if state.quitting.load(Ordering::SeqCst) || state.main_window_wanted.load(Ordering::SeqCst) {
+        return;
+    }
+    if !has_confirmed_tray(&state) {
+        return;
+    }
+    let Some(window) = handle.get_webview_window(MAIN_WINDOW) else {
+        return;
+    };
+    if window.is_visible().unwrap_or(false) {
+        return;
+    }
+    let elapsed = state.elapsed_ms();
+    let last = state.last_dock_transition_ms.load(Ordering::SeqCst);
+    let cooldown = DOCK_TRANSITION_COOLDOWN.as_millis() as u64;
+    if elapsed < last + cooldown {
+        let wait = last + cooldown - elapsed;
+        let delayed_handle = handle.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(wait));
+            let main_handle = delayed_handle.clone();
+            let _ = delayed_handle.run_on_main_thread(move || hide_main_dock(&main_handle));
+        });
+        return;
+    }
+    if state.dock_hidden.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    set_dock_visible(handle, false);
+    state.last_dock_transition_ms.store(state.elapsed_ms(), Ordering::SeqCst);
+}
+
+/// 显示并聚焦主窗口，对应 `app/main/index.ts#L86-L125` 的 `showMain`。
+fn show_main(handle: &AppHandle, settings: bool) {
+    let state = handle.state::<AppState>();
+    if state.quitting.load(Ordering::SeqCst) {
+        return;
+    }
+    let generation = state.main_visibility_generation.fetch_add(1, Ordering::SeqCst) + 1;
+    state.main_window_wanted.store(true, Ordering::SeqCst);
+    if settings {
+        state.settings_requested.store(true, Ordering::SeqCst);
+    }
+    let window = match handle.get_webview_window(MAIN_WINDOW) {
+        Some(window) => window,
+        None => match create_main_window(handle) {
+            Ok(window) => window,
+            Err(error) => {
+                log::warn!("主窗口创建失败：{error}");
+                return;
+            }
+        },
+    };
+    if state.dock_hidden.swap(false, Ordering::SeqCst) {
+        set_dock_visible(handle, true);
+        state.last_dock_transition_ms.store(state.elapsed_ms(), Ordering::SeqCst);
+    }
+    if generation != state.main_visibility_generation.load(Ordering::SeqCst) {
+        hide_main_dock(handle);
+        return;
+    }
+    if window.is_minimized().unwrap_or(false) {
+        let _ = window.unminimize();
+    }
+    let _ = window.show();
+    let _ = window.set_focus();
+    if settings {
+        let _ = window.emit(OPEN_SETTINGS_EVENT, ());
+    }
+}
+
+/// 退出应用，对应 `app/main/index.ts#L126` 与 `before-quit` 的清理动作。
+fn quit_app(handle: &AppHandle) {
+    let state = handle.state::<AppState>();
+    state.quitting.store(true, Ordering::SeqCst);
+    lock(&state.coordinator).cancel(None);
+    tray::TrayPresenter::dispose(handle);
+    handle.exit(0);
+}
+
+/// 托盘菜单事件分发，对应 `app/main/index.ts#L237` 传给 `TrayPresenter` 的回调集合。
+pub(crate) fn handle_tray_menu(handle: &AppHandle, id: &str) {
+    match id {
+        tray::MENU_SHOW_MAIN => show_main(handle, false),
+        tray::MENU_SETTINGS => show_main(handle, true),
+        // Electron 的托盘回调不经过命令队列，这里同样直接执行。
+        tray::MENU_PAUSE => {
+            pause_action(handle);
+        }
+        tray::MENU_RESUME => {
+            resume_action(handle);
+        }
+        tray::MENU_REMIND_NOW => tray_remind_now(handle),
+        tray::MENU_QUIT => quit_app(handle),
+        _ => {}
+    }
+}
+
+/// 托盘「立即提醒」：与 `app/main/index.ts#L237` 一致，被抑制时只推快照不报错。
+fn tray_remind_now(handle: &AppHandle) {
+    let state = handle.state::<AppState>();
+    match check_eligible(handle, state.inner(), false) {
+        Ok(()) => {
+            let update = lock(&state.engine).remind_now(None);
+            let _ = apply(handle, state.inner(), &update);
+        }
+        Err(_) => {
+            let snapshot = lock(&state.engine).get_snapshot();
+            emit_snapshot(handle, state.inner(), &snapshot);
+        }
+    }
 }
 
 /// 读取当前运行态快照，对应 `EyeCareBridge.getSnapshot`。
@@ -143,7 +431,14 @@ fn settings_requested(state: State<'_, AppState>) -> bool {
 /// 采样一次并推进引擎，随后把快照推送给所有窗口。
 fn tick(handle: &AppHandle) {
     let state = handle.state::<AppState>();
-    let sample = lock(&state.adapter).sample(handle, ActivitySource::Combined);
+    let mut sample = lock(&state.adapter).sample(handle, ActivitySource::Combined);
+    if !state.tray_available.load(Ordering::SeqCst) {
+        // 对齐 `app/main/index.ts#L60`：托盘缺失时能力报告随之降级。
+        sample.capabilities.tray = Capability {
+            state: CapabilityState::Unsupported,
+            reason: "未检测到可用系统托盘".into(),
+        };
+    }
     let update = lock(&state.engine).accept_sample(sample);
     if !update.effects.is_empty() {
         // 覆盖层与通知尚未迁移（Phase 4），先记录以免副作用被静默丢弃。
@@ -232,28 +527,41 @@ fn save_settings(
     apply(&handle, state.inner(), &update)
 }
 
-/// 暂停提醒，对应 `EyeCareBridge.pause`。
-#[tauri::command]
-fn pause(handle: AppHandle, state: State<'_, AppState>) -> CommandResult<RuntimeSnapshot> {
+/// 暂停提醒的实际动作；IPC 命令与托盘菜单共用，对应 `app/main/index.ts#L163-L165`。
+fn pause_action(handle: &AppHandle) -> CommandResult<RuntimeSnapshot> {
+    let state = handle.state::<AppState>();
     let _gate = gate(&state);
-    tick(&handle);
+    tick(handle);
     lock(&state.coordinator).cancel(None);
     let update = lock(&state.engine).pause();
-    apply(&handle, state.inner(), &update)
+    apply(handle, state.inner(), &update)
+}
+
+/// 暂停提醒，对应 `EyeCareBridge.pause`。
+#[tauri::command]
+fn pause(handle: AppHandle) -> CommandResult<RuntimeSnapshot> {
+    pause_action(&handle)
+}
+
+/// 恢复提醒的实际动作；IPC 命令与托盘菜单共用，对应 `app/main/index.ts#L166`。
+fn resume_action(handle: &AppHandle) -> CommandResult<RuntimeSnapshot> {
+    let state = handle.state::<AppState>();
+    let _gate = gate(&state);
+    tick(handle);
+    let update = lock(&state.engine).resume(None);
+    apply(handle, state.inner(), &update)
 }
 
 /// 恢复提醒，对应 `EyeCareBridge.resume`。
 #[tauri::command]
-fn resume(handle: AppHandle, state: State<'_, AppState>) -> CommandResult<RuntimeSnapshot> {
-    let _gate = gate(&state);
-    tick(&handle);
-    let update = lock(&state.engine).resume(None);
-    apply(&handle, state.inner(), &update)
+fn resume(handle: AppHandle) -> CommandResult<RuntimeSnapshot> {
+    resume_action(&handle)
 }
 
 /// 立即提醒，对应 `EyeCareBridge.remindNow`。
 #[tauri::command]
-fn remind_now(handle: AppHandle, state: State<'_, AppState>) -> CommandResult<RuntimeSnapshot> {
+fn remind_now(handle: AppHandle) -> CommandResult<RuntimeSnapshot> {
+    let state = handle.state::<AppState>();
     let _gate = gate(&state);
     if let Err(error) = check_eligible(&handle, state.inner(), false) {
         return CommandResult::failure(error);
@@ -436,11 +744,7 @@ fn overlay_finished(
 #[tauri::command]
 fn open_settings(handle: AppHandle, state: State<'_, AppState>) -> CommandResult<()> {
     let _gate = gate(&state);
-    // Phase 4 负责显示并聚焦主窗口；这里先置位一次性请求标记，并通知已打开的主窗口。
-    state.settings_requested.store(true, Ordering::SeqCst);
-    if let Some(window) = handle.get_webview_window(MAIN_WINDOW) {
-        let _ = window.emit(OPEN_SETTINGS_EVENT, ());
-    }
+    show_main(&handle, true);
     CommandResult::success(())
 }
 
@@ -448,11 +752,11 @@ fn open_settings(handle: AppHandle, state: State<'_, AppState>) -> CommandResult
 #[tauri::command]
 fn quit(handle: AppHandle, state: State<'_, AppState>) -> CommandResult<()> {
     let _gate = gate(&state);
-    // 对齐 Electron 的 `setImmediate(quit)`：先让本次响应返回，再由独立线程退出进程。
-    let handle = handle.clone();
+    // 对齐 Electron 的 `setImmediate(quit)`：先让本次响应返回，再由独立线程执行退出。
+    let quit_handle = handle.clone();
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_millis(50));
-        handle.exit(0);
+        quit_app(&quit_handle);
     });
     CommandResult::success(())
 }
@@ -473,11 +777,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             // 第二次启动时沿用 Electron 的语义：把已有实例的主窗口带到前台。
-            if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
+            show_main(app, false);
         }))
+        // 一次性「后台继续运行」说明与后续的设置冲突提示都走系统原生对话框。
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             get_snapshot,
             settings_requested,
@@ -502,22 +805,33 @@ pub fn run() {
                 )?;
             }
             app.manage(load_state(app));
-            // 尺寸与标题对齐 `app/main/index.ts#L93` 的 BrowserWindow 配置。
-            // URL 带 `?surface=main`，与 `app/renderer/main.tsx#L7` 的读取约定一致。
-            WebviewWindowBuilder::new(
-                app,
-                MAIN_WINDOW,
-                WebviewUrl::App("index.html?surface=main".into()),
-            )
-            .title("EyeCare")
-            .inner_size(600.0, 500.0)
-            .min_inner_size(600.0, 500.0)
-            .build()?;
-            spawn_sampler(app.handle().clone());
+            let handle = app.handle().clone();
+            let tray_available = tray::TrayPresenter::create(&handle);
+            if !tray_available {
+                log::warn!("托盘创建失败，主窗口将保持可访问");
+            }
+            handle.state::<AppState>().tray_available.store(tray_available, Ordering::SeqCst);
+            create_main_window(&handle)?;
+            // 对齐 `app/main/index.ts#L238-L247`：先采一次样刷新托盘，再显示主窗口。
+            tick(&handle);
+            show_main(&handle, false);
+            spawn_sampler(handle);
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while building tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|handle, event| match event {
+            // 对齐 `window-all-closed`：只有托盘可用时才留在后台。
+            RunEvent::ExitRequested { code: None, api, .. } => {
+                if has_confirmed_tray(&handle.state::<AppState>()) {
+                    api.prevent_exit();
+                }
+            }
+            // 对齐 `app.on('activate')`：点击 Dock 图标重新显示主窗口。
+            #[cfg(target_os = "macos")]
+            RunEvent::Reopen { .. } => show_main(handle, false),
+            _ => {}
+        });
 }
 
 /// 解析数据目录、加载设置并组装应用状态。

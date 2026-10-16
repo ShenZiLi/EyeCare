@@ -123,6 +123,23 @@ pub enum RuntimeStatus {
     CapabilityError,
 }
 
+/// 运行态中文标签，与 `app/shared/contracts.ts#L91` 的 `statusLabels` 逐项一致。
+///
+/// 托盘标题、提示文案与菜单标题都复用同一份文案，避免与前端展示不一致。
+pub fn status_label(status: RuntimeStatus) -> &'static str {
+    match status {
+        RuntimeStatus::Starting => "正在检测系统状态",
+        RuntimeStatus::Counting => "正在计时",
+        RuntimeStatus::ShortIdle => "空闲暂停",
+        RuntimeStatus::LongIdle => "等待活动",
+        RuntimeStatus::Locked => "屏幕已锁定",
+        RuntimeStatus::Sleeping => "系统正在睡眠",
+        RuntimeStatus::Paused => "已暂停",
+        RuntimeStatus::Reminding => "等待提醒结束",
+        RuntimeStatus::CapabilityError => "检测能力异常",
+    }
+}
+
 /// 定时模式。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

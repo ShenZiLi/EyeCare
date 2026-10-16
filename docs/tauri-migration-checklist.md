@@ -16,7 +16,7 @@
 | 1 · Tauri 骨架 | 完成 | `src-tauri/` 已生成并配置（identifier `org.eyecare.desktop`、`windows: []`、`macOSPrivateApi`）；`app/renderer/bridge.ts` 已就绪；`npm run vite:dev` / `vite:build` 已接入；`lib.rs` 用 `WebviewWindowBuilder` 创建主窗口（600×500、`?surface=main`、标签 `main`），并注册 `get_snapshot` / `settings_requested`，前端可直接拿到快照。其余 14 个命令留到 Phase 6 |
 | 2 · 定时引擎移植 | 完成 | `src-tauri/src/engine.rs` + `src-tauri/src/engine/tests.rs`，`cargo test` 28 项全部通过 |
 | 3 · 平台原生桥 | 完成（macOS） | `src-tauri/src/platform/`：`mod.rs` 移植 `PlatformAdapter`（连续时钟回退、能力报告、显示器、系统主题），`macos.rs` 移植 `createMacProvider`（`mach_continuous_time`、`CGEventSourceSecondsSinceLastEventType`、会话字典 + IOKit `IOConsoleLocked`）。Windows/Linux 按约定先整体降级为 `unsupported`。`reduceMotion` / `reduceTransparency` / `sleeping` 属「外观/系统事件」，留到 Phase 4 |
-| 4 · 窗口/托盘/覆盖层/通知 | 未开始 | 主窗口关闭隐藏、macOS 隐藏 Dock 图标、托盘菜单与倒计时、覆盖层窗口、通知、外观与电源事件 |
+| 4 · 窗口/托盘/覆盖层/通知 | 进行中（主窗口 + 托盘已完成） | 已完成：主窗口关闭隐藏（首次原生说明对话框）、macOS Dock 图标隐藏/恢复与 1100ms 冷却、`window-all-closed` / `activate` 语义、托盘图标与模板图、macOS 倒计时标题、六项右键菜单与禁用态、`hasConfirmedTray` / `presentedSnapshot` 托盘降级、托盘刷新主线程投递。待做：覆盖层窗口、提醒协调器与通知、外观与电源事件 |
 | 5 · 设置持久化与自启 | 完成（Windows 自启待 Phase 7） | `src-tauri/src/settings/`：`validation.rs`（V2 严格校验 + V1 迁移校验）、`store.rs`（原子写 + `fsync`、`link` 留档、V1→V2 迁移、`revision` 乐观并发）、`mod.rs`（旧 Electron 数据目录一次性补齐）、`save.rs`（登录启动事务编排）。`src-tauri/src/autostart.rs`：macOS 走 `SMAppService`、Linux 走 `.desktop`，含 `prepareLoginChange` 的 capture→apply→校验→rollback。`cargo test` 64 项全部通过。`lib.rs` 启动时从仓库读入设置与 `revision`，并把启动期告警并入每份快照。**自启的 Windows 分支（`StartupApproved` 快照、Squirrel 启动项升级）随 Windows 原生桥留到 Phase 7** |
 | 6 · IPC 契约对齐 | 完成（覆盖层接线待 Phase 4） | `src-tauri/src/ipc.rs` + `src-tauri/src/lib.rs`：15 个命令已注册（`get_snapshot` / `settings_requested` / `save_settings` / `pause` / `resume` / `remind_now` / `resolve_reminder` / `preview` / `cancel_preview` / `get_overlay` / `overlay_ready` / `overlay_sound_started` / `overlay_finished` / `open_settings` / `quit`），名称与载荷字段对齐 `bridge.ts`；`ipc.rs` 移植载荷校验与错误码；`command_gate`（`Mutex<()>`）对齐 `commandQueue`；`presented_snapshot` 合并 `previewSequence` / `currentPreviewId` / `latestPreviewResult` 与启动期告警；`save_settings` 接上 `save_with_login`、`validate_settings` 与 `SETTINGS_CONFLICT`。`src-tauri/src/reminders.rs` 为 `ReminderCoordinator` 骨架：Phase 4 前覆盖层窗口不可用，`present` 返回明确的 `REMINDER_DELIVERY_FAILED`，绝不静默假装已呈现。`cargo test` 70 项全部通过 |
 | 7–8 | 未开始 | — |
@@ -127,9 +127,24 @@ graph TB
 
 ### Phase 4 · 窗口 / 托盘 / 覆盖层 / 通知
 
-- [ ] **主窗口**：对齐 `app/main/index.ts#L93-L125`
-  - [ ] 关闭窗口 = 隐藏（首次弹一次性说明对话框），仅托盘可用时允许隐藏
-  - [ ] macOS 关闭后隐藏 Dock 图标、重开时恢复（`hideMainDock` / `app.dock` 逻辑 → Rust 侧 `NSApplication` / `set_activation_policy`）
+- [x] **主窗口**：对齐 `app/main/index.ts#L93-L125`
+  - [x] 关闭窗口 = 隐藏（首次弹一次性说明对话框），仅托盘可用时允许隐藏
+    > `src-tauri/src/lib.rs`：`create_main_window` 注册 `WindowEvent::CloseRequested`，托盘经 `has_confirmed_tray` 确认后 `prevent_close` + 隐藏；无托盘时放行关闭。首次关闭走 `tauri-plugin-dialog` 的 `MessageDialogKind::Info` + `OkCustom("知道了")`（对齐 TS 的 `buttons: ['知道了']`），`explained_background` / `close_notice_pending` / `main_visibility_generation` 三个标记语义与 TS 同名变量一致。`RunEvent::ExitRequested { code: None }` 承接 `window-all-closed`
+    > 文案差异：Tauri 对话框没有 TS 的 `detail` 字段，说明文字只保留了主文案（「关闭窗口后，护眼提醒会继续运行。」），未包含托盘操作指引
+  - [x] macOS 关闭后隐藏 Dock 图标、重开时恢复（`hideMainDock` / `app.dock` 逻辑 → Rust 侧 `NSApplication` / `set_activation_policy`）
+    > 用 `AppHandle::set_dock_visibility` 替代 `app.dock.hide()/show()`（非 macOS 走空实现，保证同一份窗口逻辑跨平台可编译）；沿用 TS 的 1100ms 冷却，用「起线程 sleep + `run_on_main_thread` 回来重新校验」代替 `setTimeout` + `cancelDockHide`。整个判定固定在主线程执行，避免从对话框回调线程读到过期的 `is_visible`
+- [x] **托盘**（`tray/presenter.ts` → `src-tauri/src/tray.rs` + `src-tauri/src/tray/icon.rs`）
+  - [x] 图标 + `iconAsTemplate`（macOS 模板图）
+    > 图标改为 `include_bytes!` 编译期嵌入 `resources/tray-rest-{light,dark}.png`，避免 dev 与打包环境的资源路径差异。macOS 直接交给 tray-icon（它会把图标统一缩到 18pt 高）；其余平台用 `image` crate 缩到 32px，对齐 Electron 的 `resize({ width: 32 })`
+  - [x] macOS 倒计时 `setTitle(formatTime)` + 等宽数字字体
+    > `set_title` 已对齐；**等宽数字字体未设置**（Tauri `set_title` 没有 TS 的 `fontType: 'monospacedDigit'` 选项），倒计时跳动时标题宽度可能轻微抖动
+  - [x] 右键菜单六项（打开概览 / 暂停·恢复 / 立即提醒 / 设置 / 退出）+ 禁用态
+    > 状态标题项 `enabled(false)`；「立即提醒」仅 `counting` / `short_idle` 可用；暂停与恢复按状态二选一生成菜单项。菜单动作经 `crate::handle_tray_menu` 分发，暂停/恢复复用 IPC 同一份 `pause_action` / `resume_action`，`MENU_REMIND_NOW` 被抑制时只推快照不报错（对齐 TS 的 `try/catch`）
+  - [x] 非 macOS 点击弹菜单
+    > `TrayIconBuilder::show_menu_on_left_click(true)`，与 TS 的非 macOS `popUpContextMenu()` 行为一致
+  - [x] `presentedSnapshot` 的托盘降级覆盖 + `hasConfirmedTray` + `tick` 的能力报告降级，三处语义与 TS 同名逻辑一致
+  - [x] 托盘刷新统一投递到主线程
+    > tauri 的托盘 setter 经 `run_item_main_thread!` **阻塞**等待主线程执行；若在采样线程直接调用，会与主线程上的托盘菜单回调互相等待。因此 `emit_snapshot` 用 `run_on_main_thread` 投递，采样线程全程不阻塞
 - [ ] **覆盖层**（`coordinator.ts#L88-L122`）
   - [ ] 每显示器一个 `WebviewWindow`：无边框、透明、`skipTaskbar`、不可移动/缩放
   - [ ] 置顶层：`setAlwaysOnTop(true, 'screen-saver')` → Tauri `set_always_on_top`；**跨全屏空间**需额外设 `NSWindowCollectionBehavior`（见风险 R1）
