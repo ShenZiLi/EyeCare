@@ -1,11 +1,13 @@
 //! 设置持久化与自启相关代码的归属模块，对应 `app/main/settings/*`。
 
+pub mod save;
 pub mod store;
 pub mod validation;
 
 #[cfg(test)]
 mod tests;
 
+pub use save::{SettingsWriter, save_with_login};
 pub use store::{LoadedSettings, SettingsStore, Stored};
 
 use std::fs;

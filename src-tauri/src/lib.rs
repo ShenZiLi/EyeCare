@@ -2,6 +2,7 @@
 //!
 //! 模块划分与 Electron 主进程一一对应，详见 `docs/tauri-migration-checklist.md`。
 
+pub mod autostart;
 pub mod contracts;
 pub mod engine;
 pub mod platform;

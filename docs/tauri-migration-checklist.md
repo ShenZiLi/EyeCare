@@ -17,7 +17,7 @@
 | 2 · 定时引擎移植 | 完成 | `src-tauri/src/engine.rs` + `src-tauri/src/engine/tests.rs`，`cargo test` 28 项全部通过 |
 | 3 · 平台原生桥 | 完成（macOS） | `src-tauri/src/platform/`：`mod.rs` 移植 `PlatformAdapter`（连续时钟回退、能力报告、显示器、系统主题），`macos.rs` 移植 `createMacProvider`（`mach_continuous_time`、`CGEventSourceSecondsSinceLastEventType`、会话字典 + IOKit `IOConsoleLocked`）。Windows/Linux 按约定先整体降级为 `unsupported`。`reduceMotion` / `reduceTransparency` / `sleeping` 属「外观/系统事件」，留到 Phase 4 |
 | 4 · 窗口/托盘/覆盖层/通知 | 未开始 | 主窗口关闭隐藏、macOS 隐藏 Dock 图标、托盘菜单与倒计时、覆盖层窗口、通知、外观与电源事件 |
-| 5 · 设置持久化 | 部分完成 | `src-tauri/src/settings/`：`validation.rs`（V2 严格校验 + V1 迁移校验）、`store.rs`（原子写 + `fsync`、`link` 留档、V1→V2 迁移、`revision` 乐观并发）、`mod.rs`（旧 Electron 数据目录一次性补齐）。`cargo test` 新增 14 项用例与 TS 侧同一组向量全部通过。`lib.rs` 启动时从仓库读入设置与 `revision`，并把启动期告警并入每份快照。**自启（`autostart.ts` / `save-with-login.ts`）未开始** |
+| 5 · 设置持久化与自启 | 完成（Windows 自启待 Phase 7） | `src-tauri/src/settings/`：`validation.rs`（V2 严格校验 + V1 迁移校验）、`store.rs`（原子写 + `fsync`、`link` 留档、V1→V2 迁移、`revision` 乐观并发）、`mod.rs`（旧 Electron 数据目录一次性补齐）、`save.rs`（登录启动事务编排）。`src-tauri/src/autostart.rs`：macOS 走 `SMAppService`、Linux 走 `.desktop`，含 `prepareLoginChange` 的 capture→apply→校验→rollback。`cargo test` 64 项全部通过。`lib.rs` 启动时从仓库读入设置与 `revision`，并把启动期告警并入每份快照。**自启的 Windows 分支（`StartupApproved` 快照、Squirrel 启动项升级）随 Windows 原生桥留到 Phase 7** |
 | 6–8 | 未开始 | — |
 
 
@@ -31,7 +31,7 @@
 | 平台桥 `app/main/platform/native.ts` | **重写为 Rust** | koffi FFI → 各平台 crate |
 | 设置持久化 `settings-store.ts` / `validation.ts` | **重写为 Rust** | 保留原子写 + 备份 + V1 迁移语义 |
 | 窗口/托盘/通知/覆盖层 | **改用 Tauri API** | `windows.ts` `coordinator.ts` `tray/presenter.ts` |
-| 自启 `platform/autostart.ts` | **半重写** | 基础能力用 `tauri-plugin-autostart`，回滚/迁移语义需自定义 |
+| 自启 `platform/autostart.ts` | **半重写** | 直接绑定平台 API（macOS `SMAppService` / Linux `.desktop`），capture→apply→校验→rollback 语义原样保留 |
 | 校验脚本 `scripts/*.cjs` | **重写或保留为 Node 开发工具** | 见 Phase 7 |
 
 > 判断依据：`timer-engine.ts` 与 `settings/validation.ts` 是纯逻辑（无 Electron import），是"照抄"；`index.ts` / `platform/index.ts` / `coordinator.ts` 深度耦合 Electron API，是"重写"。
@@ -160,12 +160,19 @@ graph TB
   - [x] 现状：Electron `app.getPath('userData')` = `~/Library/Application Support/EyeCare`
   - [x] Tauri `app_data_dir()` 默认基于 bundle identifier，路径不同
   - [x] 首启做一次性迁移：老目录存在且新目录缺失时搬运三份设置文件，失败时保留原文件并给出 warning
-- [ ] **自启**（`autostart.ts`）
-  - [ ] 基础开关用 `tauri-plugin-autostart`（macOS launchd / Windows 注册表 / Linux `.desktop`）
-  - [ ] 迁移 `prepareLoginChange` 的 **capture → apply → 校验 → rollback** 语义（Windows 需保留 `StartupApproved` 二进制值校验）
+- [x] **自启**（`autostart.ts` → `src-tauri/src/autostart.rs`）
+  - [x] 基础开关直接绑定平台 API：macOS 用 `SMAppService`（与 Electron 同一注册项，避免遗留无法关闭的重复启动项）、Linux 写 `~/.config/autostart/eyecare.desktop`。**未引入 `tauri-plugin-autostart`**：它只覆盖基础开关，表达不了下一条的三段语义
+  - [x] `setLaunchAtLogin` 写后回读校验：非 Linux 平台回读不到目标状态即报「系统未保存登录启动设置」
+  - [x] 迁移 `prepareLoginChange` 的 **capture → apply → 校验 → rollback** 语义（macOS 以系统注册项状态为准；Linux 按字节 + 权限位恢复，且读写前后都拒绝符号链接）
+  - [x] 迁移 `autostartExecutable` 的 AppImage/`APPDIR` 路径保护（登记原始镜像路径，绝不写 `/tmp/.mount_*`）
+  - [x] 迁移 `autostartDesktopEntry` 的 Exec 转义（反斜杠四倍、「`"`/`` ` ``/`$`」再加一层）
+  - [ ] Windows 注册表快照（`StartupApproved` 二进制值）capture/restore
   - [ ] 迁移 Windows 旧 Squirrel 启动项升级 `migrateWindowsLaunchAtLogin`
-  - [ ] 迁移 `autostartExecutable` 的 AppImage/`APPDIR` 路径保护
-- [ ] `save-with-login.ts` 的"设置先落盘、自启后应用、失败回滚"编排保持一致
+    > 以上两项依赖 `app.getLoginItemSettings().launchItems` 这类 Electron 专有 API，需要与 Windows 原生桥（Phase 3/4 已整体降级）一起实现，留到 Phase 7。当前 Windows 分支返回明确的未实现错误，绝不静默跳过
+- [x] `save-with-login.ts` 的「设置先落盘、自启后应用、失败回滚」编排保持一致（`settings/save.rs`）
+  - [x] 读不到系统真实状态 → `LOGIN_READ_FAILED`，不动磁盘
+  - [x] 系统拒绝写入 → 回滚后报 `LOGIN_WRITE_FAILED`
+  - [x] 落盘失败 → 回滚系统状态；回滚失败报 `LOGIN_ROLLBACK_FAILED`，绝不谎称已恢复
 
 ### Phase 6 · IPC 契约对齐
 
@@ -231,7 +238,7 @@ graph TB
 | R3 | 通知权限与签名强相关，未签名包在 macOS 可能拿不到授权 | 用正式签名包验证通知送达与点击 |
 | R4 | WebView 常驻会吃掉全部收益——必须保证空闲态创建了 0 个 WebView | 空闲 10 分钟后 `ps`/`top` 确认无 webview 子进程 |
 | R5 | 设置目录变更导致老用户配置丢失 | 首启迁移 + 断网/只读目录下的失败保留验证 |
-| R6 | Windows 自启回滚需读写 `StartupApproved` 二进制值，`tauri-plugin-autostart` 不覆盖 | 单独回归 `prepareLoginChange` 的三段语义 |
+| R6 | Windows 自启需读写 `StartupApproved` 二进制值，通用插件不覆盖 | Phase 7 单独回归 `prepareLoginChange` 的三段语义（当前 Windows 分支明确报未实现） |
 
 ---
 

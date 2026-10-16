@@ -2,18 +2,22 @@
 //!
 //! 与 TS 版共用同一组输入向量，作为 Rust 侧设置持久化正确性的判据。
 
+use std::collections::VecDeque;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 use serde_json::{Value, json};
 
 use super::migrate_legacy_directory;
-use super::store::SettingsStore;
+use super::save::{SettingsWriter, save_with_login};
+use super::store::{SettingsStore, Stored};
 use super::validation::{validate_legacy_settings, validate_settings};
+use crate::autostart::LoginChange;
 use crate::contracts::{
-    AppearanceSettings, GeneralSettings, ReminderSettings, SettingsV2, ThemePreference, TimerMode, TimerSettings,
-    VisualMode, default_settings, resolve_settings,
+    AppError, AppearanceSettings, CommandResult, GeneralSettings, ReminderSettings, SettingsV2, ThemePreference,
+    TimerMode, TimerSettings, VisualMode, default_settings, resolve_settings,
 };
 
 /// 每个用例独立的临时目录，离开作用域即清理。
@@ -379,4 +383,166 @@ fn copies_legacy_settings_files_without_overwriting_the_new_directory() {
     assert!(migrate_legacy_directory(Some(legacy.path()), &target).is_empty());
     assert_eq!(read(&target.join("settings.json")), "new");
     assert!(migrate_legacy_directory(None, &target).is_empty());
+}
+
+// ——— 保存设置时的登录启动事务（`tests/integration/save-with-login.test.ts` 的移植）———
+
+/// 可脚本化的设置落盘替身；脚本耗尽视为测试自身的问题。
+struct FakeWriter {
+    results: VecDeque<CommandResult<Stored>>,
+    calls: usize,
+}
+
+impl FakeWriter {
+    fn new(results: Vec<CommandResult<Stored>>) -> Self {
+        Self { results: results.into(), calls: 0 }
+    }
+}
+
+impl SettingsWriter for FakeWriter {
+    fn save(&mut self, _expected_revision: i64, _value: &Value) -> CommandResult<Stored> {
+        self.calls += 1;
+        self.results.pop_front().expect("落盘脚本已耗尽")
+    }
+}
+
+/// 登录启动事务两个动作的调用记录。
+#[derive(Default)]
+struct LoginLog {
+    applied: usize,
+    rolled_back: usize,
+}
+
+/// 构造可观测的登录启动事务：`apply` 写入目标状态，`rollback` 恢复捕获到的状态。
+fn fake_change(
+    actual: Arc<Mutex<bool>>,
+    log: Arc<Mutex<LoginLog>>,
+    apply_error: Option<String>,
+    rollback_error: Option<String>,
+    target: bool,
+) -> LoginChange {
+    let captured = *actual.lock().expect("读取系统状态");
+    let (apply_state, rollback_state) = (Arc::clone(&actual), actual);
+    let (apply_log, rollback_log) = (Arc::clone(&log), log);
+    LoginChange::new(
+        move || {
+            if let Some(error) = &apply_error {
+                return Err(error.clone());
+            }
+            apply_log.lock().expect("记录应用").applied += 1;
+            *apply_state.lock().expect("写入系统状态") = target;
+            Ok(())
+        },
+        move || {
+            if let Some(error) = &rollback_error {
+                return Err(error.clone());
+            }
+            rollback_log.lock().expect("记录回滚").rolled_back += 1;
+            *rollback_state.lock().expect("恢复系统状态") = captured;
+            Ok(())
+        },
+    )
+}
+
+fn stored(settings: SettingsV2) -> CommandResult<Stored> {
+    CommandResult::success(Stored { settings, revision: 1 })
+}
+
+fn write_failed() -> CommandResult<Stored> {
+    CommandResult::failure(AppError::new("SETTINGS_WRITE_FAILED", "disk full"))
+}
+
+#[test]
+fn refuses_to_touch_disk_or_system_when_the_login_snapshot_is_unavailable() {
+    let mut settings = default_settings();
+    settings.general.launch_at_login = true;
+    let mut store = FakeWriter::new(Vec::new());
+    let result = save_with_login(&mut store, 0, &settings, false, |_| Err("read denied".into()));
+    assert_eq!(result.error.expect("应有错误").code, "LOGIN_READ_FAILED");
+    assert_eq!(store.calls, 0, "读取系统状态失败时不应落盘");
+}
+
+#[test]
+fn restores_captured_state_when_the_system_rejects_the_change() {
+    let mut settings = default_settings();
+    settings.general.launch_at_login = true;
+    let actual = Arc::new(Mutex::new(false));
+    let log = Arc::new(Mutex::new(LoginLog::default()));
+    let mut store = FakeWriter::new(Vec::new());
+    let (state, record) = (Arc::clone(&actual), Arc::clone(&log));
+    let result = save_with_login(&mut store, 0, &settings, false, move |enabled| {
+        Ok(fake_change(state, record, Some("OS rejected".into()), None, enabled))
+    });
+    let error = result.error.expect("应有错误");
+    assert_eq!(error.code, "LOGIN_WRITE_FAILED");
+    assert_eq!(error.message, "OS rejected");
+    assert_eq!(store.calls, 0, "系统拒绝后不应落盘");
+    assert_eq!(log.lock().expect("读取记录").rolled_back, 1);
+    assert!(!*actual.lock().expect("读取系统状态"), "应恢复捕获到的系统状态");
+}
+
+#[test]
+fn restores_the_actual_disabled_state_when_the_disk_write_fails() {
+    let settings = default_settings();
+    let actual = Arc::new(Mutex::new(false));
+    let log = Arc::new(Mutex::new(LoginLog::default()));
+    let mut store = FakeWriter::new(vec![write_failed()]);
+    let (state, record) = (Arc::clone(&actual), Arc::clone(&log));
+    let result = save_with_login(&mut store, 0, &settings, true, move |enabled| {
+        Ok(fake_change(state, record, None, None, enabled))
+    });
+    assert_eq!(result.error.expect("应有错误").code, "SETTINGS_WRITE_FAILED");
+    assert!(!*actual.lock().expect("读取系统状态"), "应恢复系统真实状态");
+}
+
+#[test]
+fn rolls_back_and_allows_the_same_revision_to_retry() {
+    let mut settings = default_settings();
+    settings.general.launch_at_login = true;
+    let actual = Arc::new(Mutex::new(false));
+    let log = Arc::new(Mutex::new(LoginLog::default()));
+    let mut store = FakeWriter::new(vec![write_failed(), stored(settings.clone())]);
+    let (state, record) = (Arc::clone(&actual), Arc::clone(&log));
+    let first = save_with_login(&mut store, 0, &settings, false, move |enabled| {
+        Ok(fake_change(state, record, None, None, enabled))
+    });
+    assert_eq!(first.error.expect("应有错误").code, "SETTINGS_WRITE_FAILED");
+    let (state, record) = (Arc::clone(&actual), Arc::clone(&log));
+    let retry = save_with_login(&mut store, 0, &settings, false, move |enabled| {
+        Ok(fake_change(state, record, None, None, enabled))
+    });
+    assert!(retry.ok, "同一版本号重试应成功");
+    let log = log.lock().expect("读取记录");
+    assert_eq!(log.applied, 2, "两次尝试都应应用");
+    assert_eq!(log.rolled_back, 1, "只有失败的那次需要回滚");
+}
+
+#[test]
+fn reports_a_failed_rollback_instead_of_claiming_restoration() {
+    let mut settings = default_settings();
+    settings.general.launch_at_login = true;
+    let actual = Arc::new(Mutex::new(false));
+    let log = Arc::new(Mutex::new(LoginLog::default()));
+    let mut store = FakeWriter::new(vec![write_failed()]);
+    let (state, record) = (Arc::clone(&actual), Arc::clone(&log));
+    let result = save_with_login(&mut store, 0, &settings, false, move |enabled| {
+        Ok(fake_change(state, record, None, Some("rollback refused".into()), enabled))
+    });
+    assert_eq!(result.error.expect("应有错误").code, "LOGIN_ROLLBACK_FAILED");
+}
+
+#[test]
+fn leaves_the_login_registration_untouched_for_unrelated_saves() {
+    let mut settings = default_settings();
+    settings.appearance.theme = ThemePreference::Dark;
+    settings.appearance.show_tray_countdown = false;
+    let mut store = FakeWriter::new(vec![stored(settings.clone())]);
+    let prepares = Arc::new(Mutex::new(0usize));
+    let counter = Arc::clone(&prepares);
+    let result = save_with_login(&mut store, 0, &settings, false, move |_| {
+        *counter.lock().expect("记录调用") += 1;
+        Err("不应被调用".into())
+    });
+    assert!(result.ok, "无关设置应正常落盘");
+    assert_eq!(*prepares.lock().expect("读取调用次数"), 0);
 }
