@@ -995,7 +995,7 @@ fn build_overlay(
     bounds: Option<DisplayBounds>,
     mask: bool,
 ) -> tauri::Result<WebviewWindow> {
-    let mut builder = WebviewWindowBuilder::new(handle, label, WebviewUrl::App("index.html?surface=overlay".into()))
+    let mut builder = WebviewWindowBuilder::new(handle, label, WebviewUrl::App("overlay.html?surface=overlay".into()))
         .title("EyeCare")
         .decorations(false)
         .transparent(true)

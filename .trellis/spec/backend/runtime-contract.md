@@ -123,3 +123,10 @@ Wrong: `cg.symbol('kCGSessionOnConsoleKey')`, absent flags treated as false, or 
 ### macOS notification signing
 
 Electron44 uses UNUserNotificationCenter and requests authorization internally. Notification.isSupported() proves API availability only;successful show/failed events determine delivery. A packaged Mac app needs a complete bundle signature binding Info.plist/resources,not merely an inherited Electron linker signature. Local builds without a configured Developer ID use full ad-hoc bundle signing;Developer ID/notarization remains required for distribution. Never disable security checks/reset user permissions or silently replace notification with a mask. macOS UNErrorDomain1 maps to actionable notification-settings/signed-app instructions;retain generic errors for other platforms/domains/codes. Local signing cannot override user denial.
+
+
+### Overlay entry and readiness — 2026-10-16
+
+`build_overlay` uses local `overlay.html?surface=overlay`, not the main HTML. Vite must emit both entries. Preserve hidden transparent creation, `overlay-*` sender ownership and ID/generation validation, nonfocusable/click-through flash and focusable mask. Frontend readiness means first opacity is already prepared; do not start the animation clock while hidden or rely on hidden requestAnimationFrame callbacks to unblock show.
+
+Normal visual success is the actual WAAPI finish callback. Native `playback_timeout_ms` remains `max(fade_in + hold + fade_out + 5000ms, 10000ms)` and cleans stalled playback as failure. Do not replace actual renderer completion with nominal fade duration; native timing and renderer animation timelines can start at different instants. This changes no settings schema, IPC payload, timer/rest or preview identity contract.

@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/ui-contract.md", "reason": "Immutable flash behavior, reductions and preview isolation"}
+{"file": ".trellis/spec/frontend/implementation-guidelines.md", "reason": "Renderer architecture and validation"}
+{"file": ".trellis/spec/backend/runtime-contract.md", "reason": "Native event identity/readiness/cancellation"}
+{"file": ".trellis/tasks/10-16-flash-first-frame/design.md", "reason": "Reviewed startup ordering and transparent first document design"}
