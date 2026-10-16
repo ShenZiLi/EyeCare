@@ -20,7 +20,6 @@ use tauri::{
     App, AppHandle, CloseRequestApi, Emitter, Manager, RunEvent, State, WebviewUrl, WebviewWindow,
     WebviewWindowBuilder, WindowEvent,
 };
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_notification::NotificationExt;
 use uuid::Uuid;
 
@@ -88,10 +87,6 @@ pub struct AppState {
     quitting: AtomicBool,
     /// 主窗口是否「被期望可见」；隐藏去抖与 Dock 图标隐藏都依赖它。
     main_window_wanted: AtomicBool,
-    /// 「关闭窗口后仍在后台运行」提示是否已展示过（每个进程仅一次）。
-    explained_background: AtomicBool,
-    /// 一次性后台提示是否仍在等待用户确认。
-    close_notice_pending: AtomicBool,
     /// 主窗口可见性世代号；异步回调靠它判断请求是否已被后来的操作取代。
     main_visibility_generation: AtomicU64,
     /// macOS 上 Dock 图标当前是否已隐藏。
@@ -123,8 +118,6 @@ impl AppState {
             latest_preview_result: Mutex::new(None),
             quitting: AtomicBool::new(false),
             main_window_wanted: AtomicBool::new(false),
-            explained_background: AtomicBool::new(false),
-            close_notice_pending: AtomicBool::new(false),
             main_visibility_generation: AtomicU64::new(0),
             dock_hidden: AtomicBool::new(false),
             last_dock_transition_ms: AtomicU64::new(0),
@@ -354,35 +347,14 @@ fn create_main_window(handle: &AppHandle) -> tauri::Result<WebviewWindow> {
 }
 
 /// 主窗口关闭请求：托盘可用时改为隐藏窗口，否则放行关闭并让应用退出。
-///
-/// 对齐 `app/main/index.ts#L95-L112`，含一次性「后台继续运行」说明。
 fn on_main_close_requested(handle: &AppHandle, api: &CloseRequestApi) {
     let state = handle.state::<AppState>();
     if state.quitting.load(Ordering::SeqCst) || !has_confirmed_tray(&state) {
         return;
     }
     api.prevent_close();
-    if state.close_notice_pending.load(Ordering::SeqCst) {
-        return;
-    }
     let close_generation = state.main_visibility_generation.fetch_add(1, Ordering::SeqCst) + 1;
-    if state.explained_background.swap(true, Ordering::SeqCst) {
-        hide_main_after_close(handle, close_generation);
-        return;
-    }
-    state.close_notice_pending.store(true, Ordering::SeqCst);
-    let notice_handle = handle.clone();
-    handle
-        .dialog()
-        .message("关闭窗口后，护眼提醒会继续运行。")
-        .title("EyeCare 继续在后台运行")
-        .kind(MessageDialogKind::Info)
-        .buttons(MessageDialogButtons::OkCustom("知道了".into()))
-        .show(move |_| {
-            let notice_state = notice_handle.state::<AppState>();
-            notice_state.close_notice_pending.store(false, Ordering::SeqCst);
-            hide_main_after_close(&notice_handle, close_generation);
-        });
+    hide_main_after_close(handle, close_generation);
 }
 
 /// 关闭请求被拦下后隐藏主窗口；任何前置条件失效都直接放弃。
@@ -912,7 +884,7 @@ pub fn run() {
             // 第二次启动时沿用 Electron 的语义：把已有实例的主窗口带到前台。
             show_main(app, false);
         }))
-        // 一次性「后台继续运行」说明与后续的设置冲突提示都走系统原生对话框。
+        // 注册系统原生对话框支持。
         .plugin(tauri_plugin_dialog::init())
         // 通知型提醒；点击通知（tap）后把主窗口带到前台。
         .plugin(tauri_plugin_notification::init())
