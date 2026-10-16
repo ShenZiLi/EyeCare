@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/ui-contract.md", "reason": "Preserve desktop behavior, stable choices and accessibility"}
+{"file": ".trellis/spec/frontend/implementation-guidelines.md", "reason": "Renderer boundary and required validation"}
+{"file": ".trellis/tasks/10-16-liquid-glass-themes/design.md", "reason": "User approved black neutral liquid glass direction"}

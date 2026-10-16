@@ -36,7 +36,7 @@ Overview,trigger/reminder/general pages,native tray menu,preview and mask are pr
 - Press feedback uses exactscale0.96 with<=150ms named transitions. Keep eligibility exclusions in :where so dataset and OS reduced-motion scale1 rules win;transition:none alone does not stop scaling. Theme swaps suppress transitions only on actual effective-theme changes,not each snapshot.
 - Labels/units remain visible. Error text is near its field,with accessible association. Pending/success/failure text uses status/alert semantics without each-second timer announcements.
 - Main600x620,min600x520;all four normal pages fit one viewport in both themes,including core choices,actions and successful feedback. Prefer compact grouping/parallel fields and reduced whitespace;never clipping,hidden actions or unreadable fonts. Long errors/capability reasons/large text retain accessible overflow fallback. Focus is never obscured by sticky manual-save content (none exists).
-- Existing semantic palette/vector family/CJK system font/tabular digits and keyboard focus remain. Glass focuses on navigation/controls with stable readable content surfaces;OS reductions use equivalent opaque/static behavior.
+- Neutral silver light / black dark semantic palette (2026-10-16; no green), existing vector family/CJK system font/tabular digits and keyboard focus remain. Glass focuses on navigation/controls with stable readable content surfaces;OS reductions use equivalent opaque/static behavior.
 
 ## 4. Error matrix
 
@@ -79,3 +79,12 @@ Wrong: full form needs another Save button. Correct: all8 controls autosave and 
 ### Stable choice switching
 
 Trigger/reminder selection is frequent state feedback,not an entrance animation. Keep choice-card geometry/opacity stable across pointer/keyboard selection and automatic-save completion. Reserve a consistent settings-page feedback slot;pending status must not push all content down and remove it again. No global section/field/notice mount keyframes or card transform/scale. Card keyboard focus uses input:focus-visible with one visible card ring;pointer focus must not add a second ring. Preserve native radio semantics,disabled handling and rapid autosave intents. Any selection transition is short,named-property and interruptible;keyboard/reduced-motion selection is immediate. Do not hide errors to obtain stable geometry.
+
+
+### Neutral optical glass — 2026-10-16
+
+`styles.css` owns all material and motion tokens. Light uses silver/white; dark uses black/charcoal with equal-RGB neutral highlights and accents (semantic errors remain red). `App` renders one decorative `.nav-lens` with inline current-index transform; its 44px height and 52px pitch match 44px navigation rows plus 8px gaps. Keep decoration `aria-hidden` and `pointer-events:none`.
+
+Glass uses static illumination, edge highlights and inset shadows; countdown ellipse is decorative and must not imply timed progress. No continuous/per-second material animation or pointer tracking. Navigation uses a 260ms transform transition, switches 240ms, dialog opacity/transform 240ms with `@starting-style`; unsupported engines display the final state. Keyboard-visible focus disables spatial transition. Choice cards remain stable.
+
+Dataset/media reductions cover gradients, blur and decorative pseudo-elements. Motion reduction removes transition/animation on both pseudo-element types and forces active button scale1, but preserves checked switch thumb translation. Do not apply global `transform:none`: that would make an enabled switch look disabled. Test checked position, not just transition duration. Normal four-page layout is verified at CSS 600x520, 600x620 and 880x620 in each theme; large text/errors may scroll accessibly.

@@ -1,0 +1,268 @@
+{
+  "date": "2026-10-16",
+  "environment": "macOS Tabbit Chromium; mocked desktop bridge; not native WebView",
+  "layout": [
+    {
+      "theme": "light",
+      "page": "概览",
+      "width": 600,
+      "height": 520,
+      "scrollWidth": 600,
+      "scrollHeight": 520,
+      "clipped": []
+    },
+    {
+      "theme": "light",
+      "page": "触发条件",
+      "width": 600,
+      "height": 520,
+      "scrollWidth": 600,
+      "scrollHeight": 520,
+      "clipped": []
+    },
+    {
+      "theme": "light",
+      "page": "提醒方式",
+      "width": 600,
+      "height": 520,
+      "scrollWidth": 600,
+      "scrollHeight": 520,
+      "clipped": []
+    },
+    {
+      "theme": "light",
+      "page": "通用设置",
+      "width": 600,
+      "height": 520,
+      "scrollWidth": 600,
+      "scrollHeight": 520,
+      "clipped": []
+    },
+    {
+      "theme": "light",
+      "page": "概览",
+      "width": 600,
+      "height": 620,
+      "scrollWidth": 600,
+      "scrollHeight": 620,
+      "clipped": []
+    },
+    {
+      "theme": "light",
+      "page": "触发条件",
+      "width": 600,
+      "height": 620,
+      "scrollWidth": 600,
+      "scrollHeight": 620,
+      "clipped": []
+    },
+    {
+      "theme": "light",
+      "page": "提醒方式",
+      "width": 600,
+      "height": 620,
+      "scrollWidth": 600,
+      "scrollHeight": 620,
+      "clipped": []
+    },
+    {
+      "theme": "light",
+      "page": "通用设置",
+      "width": 600,
+      "height": 620,
+      "scrollWidth": 600,
+      "scrollHeight": 620,
+      "clipped": []
+    },
+    {
+      "theme": "light",
+      "page": "概览",
+      "width": 880,
+      "height": 620,
+      "scrollWidth": 880,
+      "scrollHeight": 620,
+      "clipped": []
+    },
+    {
+      "theme": "light",
+      "page": "触发条件",
+      "width": 880,
+      "height": 620,
+      "scrollWidth": 880,
+      "scrollHeight": 620,
+      "clipped": []
+    },
+    {
+      "theme": "light",
+      "page": "提醒方式",
+      "width": 880,
+      "height": 620,
+      "scrollWidth": 880,
+      "scrollHeight": 620,
+      "clipped": []
+    },
+    {
+      "theme": "light",
+      "page": "通用设置",
+      "width": 880,
+      "height": 620,
+      "scrollWidth": 880,
+      "scrollHeight": 620,
+      "clipped": []
+    },
+    {
+      "theme": "dark",
+      "page": "概览",
+      "width": 600,
+      "height": 520,
+      "scrollWidth": 600,
+      "scrollHeight": 520,
+      "clipped": []
+    },
+    {
+      "theme": "dark",
+      "page": "触发条件",
+      "width": 600,
+      "height": 520,
+      "scrollWidth": 600,
+      "scrollHeight": 520,
+      "clipped": []
+    },
+    {
+      "theme": "dark",
+      "page": "提醒方式",
+      "width": 600,
+      "height": 520,
+      "scrollWidth": 600,
+      "scrollHeight": 520,
+      "clipped": []
+    },
+    {
+      "theme": "dark",
+      "page": "通用设置",
+      "width": 600,
+      "height": 520,
+      "scrollWidth": 600,
+      "scrollHeight": 520,
+      "clipped": []
+    },
+    {
+      "theme": "dark",
+      "page": "概览",
+      "width": 600,
+      "height": 620,
+      "scrollWidth": 600,
+      "scrollHeight": 620,
+      "clipped": []
+    },
+    {
+      "theme": "dark",
+      "page": "触发条件",
+      "width": 600,
+      "height": 620,
+      "scrollWidth": 600,
+      "scrollHeight": 620,
+      "clipped": []
+    },
+    {
+      "theme": "dark",
+      "page": "提醒方式",
+      "width": 600,
+      "height": 620,
+      "scrollWidth": 600,
+      "scrollHeight": 620,
+      "clipped": []
+    },
+    {
+      "theme": "dark",
+      "page": "通用设置",
+      "width": 600,
+      "height": 620,
+      "scrollWidth": 600,
+      "scrollHeight": 620,
+      "clipped": []
+    },
+    {
+      "theme": "dark",
+      "page": "概览",
+      "width": 880,
+      "height": 620,
+      "scrollWidth": 880,
+      "scrollHeight": 620,
+      "clipped": []
+    },
+    {
+      "theme": "dark",
+      "page": "触发条件",
+      "width": 880,
+      "height": 620,
+      "scrollWidth": 880,
+      "scrollHeight": 620,
+      "clipped": []
+    },
+    {
+      "theme": "dark",
+      "page": "提醒方式",
+      "width": 880,
+      "height": 620,
+      "scrollWidth": 880,
+      "scrollHeight": 620,
+      "clipped": []
+    },
+    {
+      "theme": "dark",
+      "page": "通用设置",
+      "width": 880,
+      "height": 620,
+      "scrollWidth": 880,
+      "scrollHeight": 620,
+      "clipped": []
+    }
+  ],
+  "interactions": {
+    "checkedFull": "matrix(1, 0, 0, 1, 16, 0)",
+    "reduced": {
+      "motion": "reduced",
+      "transparency": "reduced",
+      "navDuration": "0s",
+      "blur": "none",
+      "background": "rgb(250, 251, 252)",
+      "switchTransform": "matrix(1, 0, 0, 1, 16, 0)"
+    },
+    "trapped": true,
+    "focusRestored": true,
+    "osReducedPress": {
+      "scale": "1",
+      "duration": "0s"
+    },
+    "stable": true
+  },
+  "additional": {
+    "darkReducedTransparencyMediaBodyReplay": {
+      "sidebar": "rgb(25, 25, 25)",
+      "blur": "none",
+      "gradient": "none",
+      "glass": "#191919"
+    },
+    "nativeTransparencyMediaUnverified": true,
+    "contrastMore": {
+      "softLine": "#747474",
+      "controlBorder": "#747474"
+    },
+    "press": {
+      "scale": "0.96",
+      "duration": "0.13s, 0.13s, 0.13s, 0.13s, 0.13s, 0.13s"
+    },
+    "nav": {
+      "aligned": true,
+      "duration": "0.26s"
+    },
+    "largeText": {
+      "width": 600,
+      "scrollWidth": 600,
+      "height": 520,
+      "scrollHeight": 520,
+      "restoreReachable": true
+    }
+  }
+}
