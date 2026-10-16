@@ -306,3 +306,25 @@ Rewrote Chinese README following GitHub official README guidance: product/use/co
 ### Status
 
 [OK] **Completed**
+
+
+## Session 12: 银白与黑曜液态玻璃主题重构
+<!-- trellis-session: v=2 fp=3fa0ddabe152d616 -->
+
+**Date**: 2026-10-16
+**Task**: 银白与黑曜液态玻璃主题重构
+**Branch**: `dev-tauri`
+
+### Summary
+
+完成亮色银白玻璃与黑色暗色主题，去除绿色；加入导航玻璃滑动、光学倒计时和控件/弹窗反馈。类型检查、lint、29项前端测试、75项Rust测试、24组浏览器布局检查和Tauri release构建通过。验收截图及偏好回退证据已记录；原生WebView视觉与实际系统透明度信号仍需实机验收。仅提交本任务，保留并行Tauri修改。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `dbec36a` | feat(ui): 重构银白与黑曜液态玻璃主题 |
+
+### Status
+
+[OK] **Completed**
