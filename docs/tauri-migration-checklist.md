@@ -13,7 +13,7 @@
 | Phase | 状态 | 说明 |
 |---|---|---|
 | 0 · 基线冻结 | 未做 | 尚未打 tag、未导出契约快照 |
-| 1 · Tauri 骨架 | 部分完成 | `src-tauri/` 已生成并配置（identifier `org.eyecare.desktop`、`windows: []`、`macOSPrivateApi`）；`app/renderer/bridge.ts` 已就绪；`npm run vite:dev` / `vite:build` 已接入。**尚缺** Rust 侧窗口创建与命令注册，应用目前不会显示任何窗口 |
+| 1 · Tauri 骨架 | 完成 | `src-tauri/` 已生成并配置（identifier `org.eyecare.desktop`、`windows: []`、`macOSPrivateApi`）；`app/renderer/bridge.ts` 已就绪；`npm run vite:dev` / `vite:build` 已接入；`lib.rs` 用 `WebviewWindowBuilder` 创建主窗口（600×500、`?surface=main`、标签 `main`），并注册 `get_snapshot` / `settings_requested`，前端可直接拿到快照。其余 14 个命令留到 Phase 6 |
 | 2 · 定时引擎移植 | 完成 | `src-tauri/src/engine.rs` + `src-tauri/src/engine/tests.rs`，`cargo test` 28 项全部通过 |
 | 3 · 平台原生桥 | 未开始 | macOS 的 objc2 / IOKit 适配尚未实现 |
 | 4–8 | 未开始 | — |
