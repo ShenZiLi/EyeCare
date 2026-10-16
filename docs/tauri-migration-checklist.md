@@ -2,8 +2,22 @@
 
 > 目标：把 Electron 44 主进程替换为 Tauri 2（Rust 核心 + 系统 WebView），常驻内存 140MB → 40–80MB，安装包 ~180MB → ~10MB。
 > 约束：保持现有三界面（主/设置、托盘、覆盖层）、`RuntimeSnapshot` 契约、定时引擎语义与设置文件兼容。
+>
+> 分支：`dev-tauri`（从 `main` 切出）；Rust 工具链由根目录 `mise.toml` 提供（cargo 1.99.1），
+> 非交互 shell 中请用 `mise exec -- cargo ...`，npm 脚本 `tauri:dev` / `tauri:build` 已内建 `mise exec`。
 
 ---
+
+## 进度
+
+| Phase | 状态 | 说明 |
+|---|---|---|
+| 0 · 基线冻结 | 未做 | 尚未打 tag、未导出契约快照 |
+| 1 · Tauri 骨架 | 部分完成 | `src-tauri/` 已生成并配置（identifier `org.eyecare.desktop`、`windows: []`、`macOSPrivateApi`）；`app/renderer/bridge.ts` 已就绪；`npm run vite:dev` / `vite:build` 已接入。**尚缺** Rust 侧窗口创建与命令注册，应用目前不会显示任何窗口 |
+| 2 · 定时引擎移植 | 完成 | `src-tauri/src/engine.rs` + `src-tauri/src/engine/tests.rs`，`cargo test` 28 项全部通过 |
+| 3 · 平台原生桥 | 未开始 | macOS 的 objc2 / IOKit 适配尚未实现 |
+| 4–8 | 未开始 | — |
+
 
 ## 0. 迁移原则（先定边界）
 
@@ -182,8 +196,8 @@ graph TB
 
 | 现有文件 | 目标 | 动作 |
 |---|---|---|
-| [app/renderer/App.tsx](file:///Users/shen/Studio/Code/EyeCare/app/renderer/App.tsx) / Overlay.tsx / Settings.tsx / components.tsx / styles.css | `src/` | 复用（仅替换 bridge 来源） |
-| [app/renderer/main.tsx](file:///Users/shen/Studio/Code/EyeCare/app/renderer/main.tsx) | `src/main.tsx` | 保留 `?surface=` 分发 |
+| [app/renderer/App.tsx](file:///Users/shen/Studio/Code/EyeCare/app/renderer/App.tsx) / Overlay.tsx / Settings.tsx / components.tsx / styles.css | 就地保留 | 复用（零改动） |
+| [app/renderer/main.tsx](file:///Users/shen/Studio/Code/EyeCare/app/renderer/main.tsx) | 就地保留 | 仅新增 `import './bridge'`，保留 `?surface=` 分发 |
 | [app/shared/contracts.ts](file:///Users/shen/Studio/Code/EyeCare/app/shared/contracts.ts) | `src/shared/contracts.ts` + `src-tauri/src/contracts.rs` | 复用 + Rust 镜像 |
 | [app/main/engine/timer-engine.ts](file:///Users/shen/Studio/Code/EyeCare/app/main/engine/timer-engine.ts) | `src-tauri/src/engine.rs` | 重写（Rust） |
 | [app/main/platform/native.ts](file:///Users/shen/Studio/Code/EyeCare/app/main/platform/native.ts) | `src-tauri/src/platform/{macos,windows,linux}.rs` | 重写（crate 替换 koffi） |
@@ -197,7 +211,7 @@ graph TB
 | [app/main/windows.ts](file:///Users/shen/Studio/Code/EyeCare/app/main/windows.ts) | `src-tauri/src/windows.rs` | 重写 |
 | [app/main/ipc-validation.ts](file:///Users/shen/Studio/Code/EyeCare/app/main/ipc-validation.ts) | `src-tauri/src/ipc.rs` | 重写 |
 | [app/main/index.ts](file:///Users/shen/Studio/Code/EyeCare/app/main/index.ts) | `src-tauri/src/lib.rs` + `main.rs` | 重写（应用编排） |
-| [app/preload/index.ts](file:///Users/shen/Studio/Code/EyeCare/app/preload/index.ts) | `src/bridge.ts` | 替换（Tauri invoke/listen） |
+| [app/preload/index.ts](file:///Users/shen/Studio/Code/EyeCare/app/preload/index.ts) | `app/renderer/bridge.ts` | 替换（Tauri invoke/listen） |
 | [forge.config.ts](file:///Users/shen/Studio/Code/EyeCare/forge.config.ts) | `src-tauri/tauri.conf.json` | 替换 |
 | [vite.renderer.config.ts](file:///Users/shen/Studio/Code/EyeCare/vite.renderer.config.ts) | 同文件 | 沿用（调 `build.outDir`） |
 | [vite.main.config.ts](file:///Users/shen/Studio/Code/EyeCare/vite.main.config.ts) / vite.preload.config.ts | — | 删除 |
