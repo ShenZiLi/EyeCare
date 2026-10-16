@@ -1,49 +1,120 @@
-<p align="center">
-  <img src="resources/icon.png" alt="EyeCare icon" width="88" />
-</p>
+<div align="center">
+  <img src="resources/icon.png" width="112" alt="EyeCare" />
 
-<h1 align="center">EyeCare</h1>
+  # EyeCare
 
-<p align="center">Give your eyes a break.</p>
+  **Give your eyes a break.**
 
-<p align="center">
+  A tray-resident break reminder for macOS, Windows and Linux. It follows real mouse and keyboard activity, nudges you to rest, and keeps every setting on your own machine.
+
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License" /></a>
-  <img src="https://img.shields.io/badge/Node.js-24-339933?logo=nodedotjs&amp;logoColor=white" alt="Node.js 24" />
-  <img src="https://img.shields.io/badge/Tauri-2-24C8D8?logo=tauri&amp;logoColor=white" alt="Tauri 2" />
-</p>
+  <img src="https://img.shields.io/badge/version-1.0.3-blue.svg" alt="Version 1.0.3" />
+  <img src="https://img.shields.io/badge/Tauri-2-24C8D8?logo=tauri&logoColor=white" alt="Tauri 2" />
+  <img src="https://img.shields.io/badge/Rust-1.90%2B-000000?logo=rust&logoColor=white" alt="Rust 1.90+" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" />
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg" alt="Platforms" />
 
-<p align="center">
-  <strong>English</strong> | <a href="README.zh-CN.md">简体中文</a>
-</p>
+  **English** · <a href="README.zh-CN.md">简体中文</a>
+</div>
 
-EyeCare is a desktop break reminder that lives in your system tray, built for macOS, Windows, and Linux. It reminds you to rest based on mouse or keyboard activity, or at fixed intervals. Settings save automatically, and configuration and timing are handled locally.
+![EyeCare overview](docs/images/overview-dark.png)
 
-This branch contains the **Tauri 2 + Rust** implementation, version **1.0.3**. Earlier releases and native acceptance records may describe the retired Electron implementation. They do not establish acceptance of this Tauri branch.
+## Highlights
 
-[Quick start](#quick-start) · [Usage](#usage) · [Local packaging](#local-packaging) · [FAQ](#faq) · [Contributing](#contributing)
+- **Counts work, not wall-clock time.** Idle stretches do not consume your interval, so the reminder arrives when you have actually been staring at the screen.
+- **Four reminder channels.** A gentle full-screen fade, an acknowledgment panel, a system notification, or sound only — combine a visual with sound if you like.
+- **Quiet by default.** Locking, sleeping, extended idle time or an unknown critical capability suppresses new reminders. Missed reminders are never replayed.
+- **Rust owns the clock.** The interval, the sampler and reminder state live in the Rust core; the UI renders snapshots and sends commands.
+- **Everything stays local.** No keystroke content, no pointer trails, no screen captures, no network calls.
 
 ## Features
 
-- **Two timing modes**: accumulate active mouse or keyboard time, or receive reminders at fixed intervals.
-- **Four reminder types**: a gentle screen fade, an acknowledgment overlay, a system notification, or sound only. Visual reminders can also play a sound.
-- **Automatic away detection**: extended idle time resets progress. Locking, sleep, or a failure in a critical system check suppresses new reminders; missed reminders are not replayed on return.
-- **System tray integration**: a countdown and menu actions for pausing, resuming, triggering a reminder, opening settings, and quitting.
-- **Manual pause**: reminders stay paused until you choose to resume.
-- **Instant settings**: eight core options that save automatically.
-- **Light and dark themes**: light, dark, and system appearance in a compact Liquid Glass interface.
-- **System preferences**: automatically respects preferences such as reduced motion and reduced transparency.
+| Area | What you get |
+| --- | --- |
+| Timing modes | Accumulated active time or a fixed interval |
+| Reminder types | Gentle screen fade, acknowledgment panel, system notification, sound only |
+| Away detection | A 60-second activity window; long idle resets progress without firing a reminder |
+| Tray | Live countdown in the menu bar, pause / resume, remind now, settings, quit |
+| Manual pause | Stays paused until you resume, across as long as you leave it |
+| Settings | Eight core options, saved automatically, validated before they hit disk |
+| Appearance | Light, dark or system; Liquid Glass surfaces; respects reduced motion and reduced transparency |
+
+## Screenshots
+
+The interface ships in Simplified Chinese.
+
+| Overview (概览) | Trigger conditions (触发条件) |
+| --- | --- |
+| ![Overview](docs/images/overview-dark.png) | ![Trigger conditions](docs/images/trigger-dark.png) |
+| **Reminder type (提醒方式)** | **General settings (通用设置)** |
+| ![Reminder type](docs/images/reminder-dark.png) | ![General settings](docs/images/general-dark.png) |
+
+The acknowledgment panel is the only reminder that replies to you — "Got it" (知道了) records a confirmed break and starts the next cycle:
+
+![Acknowledgment panel](docs/images/overlay-acknowledge-dark.png)
+
+## How a cycle works
+
+```mermaid
+flowchart LR
+  S["System sampler<br/>(mouse / keyboard idle)"] --> E["Rust timing engine"]
+  E --> Q{"Interval reached?"}
+  Q -- no --> E
+  Q -- yes --> R["Reminder event<br/>(resolved settings)"]
+  R --> V1["Gentle screen fade"]
+  R --> V2["Acknowledgment panel"]
+  R --> V3["System notification"]
+  R --> V4["Sound only"]
+  V1 --> D["Settle the cycle"]
+  V2 --> D
+  V3 --> D
+  V4 --> D
+  D --> E
+  B["Locked · sleeping · long idle · pause"] -. suppresses .-> Q
+```
+
+The rectangle in the middle is what you configure; everything else is fixed. Effect timing, wording, sound and display coverage are conventions rather than settings, and there is no snooze.
+
+### Timing and reminder rules
+
+| Scenario | Behaviour |
+| --- | --- |
+| Accumulated active time | Any mouse or keyboard input maintains a fixed 60-second activity window; accumulation stops outside it |
+| Fixed interval | Reminds on the configured interval; cycles suppressed by locking, sleep or manual pause are skipped |
+| Idle reset threshold reached | Progress resets and no reminder fires; progress also resets while paused |
+| Gentle screen fade | A full-screen black layer fades in, holds and fades out over about 2 seconds, peaking at 90% opacity; it never takes focus and clicks pass through |
+| Acknowledgment panel: Got it (知道了) | Closes the panel, records a confirmed break, resets progress and starts the next cycle |
+| Close panel / Escape | Skips this cycle without recording a confirmed break |
+| Notification posted / sound finished | Ends the cycle automatically without recording a confirmed break |
+| Preview (预览效果) | Never touches real timing progress or confirmed breaks |
+
+Reminders cover every connected display. The built-in sound plays once per cycle at a fixed 50% volume.
+
+## Settings reference
+
+| Page | Setting | Default | Range / options |
+| --- | --- | --- | --- |
+| Trigger conditions | Timing mode (计时模式) | Accumulated active time (累计活跃时间) | Accumulated active time / Fixed interval (固定周期) |
+| Trigger conditions | Active reminder time (活跃提醒时间) | 30 minutes | Whole minutes, 1–240 |
+| Trigger conditions | Idle reset threshold (空闲清零时间) | 10 minutes | Whole minutes, 1–120; shown in accumulated active time mode |
+| Reminder type | Primary visual (主视觉方式) | Gentle screen fade (柔和闪屏) | Gentle screen fade / Acknowledgment panel (确认蒙版) / System notification (系统通知) / Sound only (仅声音) |
+| Reminder type | Enable reminder sound (启用声音提醒) | Off | On / Off; forced on when Sound only is selected |
+| General settings | Theme (外观) | Follow system (跟随系统) | Follow system / Light (亮色) / Dark (暗色) |
+| General settings | Tray countdown (在托盘显示倒计时) | On | On / Off |
+| General settings | Launch at login (开机启动) | Off | On / Off |
+
+Saving is automatic: numeric fields commit roughly 300 milliseconds after you stop typing, or when the field loses focus. Invalid values or a failed write keep the last valid configuration and explain what happened. Restoring defaults asks for confirmation first.
+
+Option labels shift with the mode — the interval reads Active reminder time (活跃提醒时间) under accumulated active time, and Interval (间隔时间) under a fixed interval. At narrow widths the sidebar collapses to icons and each icon reveals its page name on hover.
 
 ## Quick start
 
 ### Requirements
 
-- Node.js **24**. The repository's build workflow uses **24.15.0**.
-- npm **11**.
-- Rust **1.90+**, installed through mise (`mise install`) for the local scripts.
-- Tauri platform prerequisites: Xcode command-line tools on macOS, MSVC C++ tools and WebView2 on Windows, or WebKitGTK 4.1 and build libraries on Linux.
-- Git and an active desktop session on your operating system.
-
-Dependency versions are locked in [package-lock.json](package-lock.json). Run and package the app on the target platform; see the support details below.
+- **Node.js 24** (the release workflow pins 24.15.0) and **npm 11**
+- **Rust 1.90+**, installed through [mise](https://mise.jdx.dev/) so the `npm` scripts resolve the same toolchain (`mise install`)
+- Tauri platform prerequisites: Xcode command-line tools on macOS, MSVC C++ build tools plus WebView2 on Windows, or WebKitGTK 4.1 and the usual build libraries on Linux
+- Git, and a running desktop session
 
 ### Run from source
 
@@ -54,62 +125,16 @@ npm ci
 npm start
 ```
 
-`npm start` launches the Tauri app and local Vite server. `npm run vite:dev` serves the frontend only; native commands require the Tauri host.
+`npm start` launches the Tauri window together with the Vite dev server. `npm run vite:dev` alone serves the frontend, but native commands need the Tauri host.
 
-## Usage
-
-1. Choose a timing mode and duration under Trigger conditions (触发条件).
-2. Choose a visual reminder type and sound setting under Reminder type (提醒方式). Use Preview (预览效果) to try the reminder.
-3. Close the main window to keep EyeCare running in the tray, and click the tray icon to open its menu. Choose Quit EyeCare (退出 EyeCare) to stop the app. In environments without a reliable system tray, the main window remains accessible.
-
-Settings save automatically. Numeric inputs save about 300 milliseconds after you stop typing, or when the field loses focus. Invalid values or save failures show an explanation and leave the previous valid configuration in place. Restoring defaults requires confirmation.
-
-### Core settings
-
-| Page | Setting | Default | Options / range |
-| --- | --- | --- | --- |
-| Trigger conditions | Timing mode | Accumulated active time | Accumulated active time / Fixed interval |
-| Trigger conditions | Reminder time | 30 minutes | Whole numbers from 1–240 minutes |
-| Trigger conditions | Idle reset threshold | 10 minutes | Whole numbers from 1–120 minutes; shown in accumulated active time mode |
-| Reminder type | Primary visual mode | Gentle screen fade | Gentle screen fade / Acknowledgment overlay / System notification / Sound only |
-| Reminder type | Enable reminder sound | Off | On / Off |
-| General settings | Theme | System | System / Light / Dark |
-| General settings | Tray countdown | On | On / Off |
-| General settings | Launch at login | Off | On / Off |
-
-The reminder time is labeled Active reminder time (活跃提醒时间) in accumulated active time mode and Interval (间隔时间) in fixed interval mode. Choosing Sound only automatically enables sound, so the sole reminder channel cannot be disabled. The default window size is **600 × 620** logical pixels. Narrow windows use icon navigation; hover over a button to see its page name.
-
-### Timing and reminder rules
-
-| Scenario | Behavior |
-| --- | --- |
-| Accumulated active time | Any mouse or keyboard activity maintains a fixed 60-second activity window; accumulation pauses outside that window |
-| Fixed interval | Reminds at the configured interval; cycles suppressed by locking, sleep, manual pause, or similar states are skipped |
-| Idle reset threshold reached | Resets progress and stops new reminders; progress also resets during manual pause |
-| Gentle screen fade | A full-screen black overlay fades in, holds, and fades out over about 2 seconds, reaching 90% opacity; it does not take focus and allows clicks through |
-| Acknowledgment overlay: Got it (知道了) | Closes all associated overlays, records a confirmed break, resets progress, and starts the next cycle |
-| Close overlay / Escape | Skips the current cycle and starts the next one without recording a confirmed break |
-| Notification submitted / Sound finished | Automatically ends the current cycle without recording a confirmed break |
-| Preview | Does not affect actual timing progress or break confirmations |
-
-Reminders cover all displays. Sound uses a built-in gentle effect at a fixed 50% volume. The activity window, effect parameters, wording, sound, and display coverage follow fixed conventions. Advanced configuration and snoozing are not available.
-
-## Platform support
-
-macOS, Windows and Linux are build targets. macOS has a native input/clock/lock adapter; Windows and Linux currently report limited capabilities, and critical unknown state suppresses reminders. Full platform parity, physical lock/sleep, multi-display coverage, notification delivery and login startup still require Tauri-specific native acceptance.
-
-The files in `docs/` record earlier implementation evidence and migration progress. Historical Electron results do not prove Tauri behavior.
-
-## Local packaging
+## Build and package
 
 ```bash
-npm run package   # Compile without generating installers
-npm run make      # Compile and create native bundles
+npm run package   # Compile the app without generating installers
+npm run make      # Compile and produce native bundles
 ```
 
-Bundles are written to `src-tauri/target/release/bundle/`: DMG/app on macOS, MSI/NSIS on Windows, and deb/rpm/AppImage on Linux. Run builds on the target OS. The workflow installs Linux prerequisites and builds all four OS/architecture targets.
-
-Signing uses Tauri's platform signing configuration. The removed Forge signing variables are no longer consumed. Release publishing remains available through the workflow's `publish_release` input; existing published versions cannot be overwritten.
+Bundles land in `src-tauri/target/release/bundle/` — DMG and `.app` on macOS, MSI and NSIS on Windows, deb, rpm and AppImage on Linux. Build on the target operating system; signing follows Tauri's platform signing configuration.
 
 ## Development and verification
 
@@ -117,61 +142,64 @@ Stack: **Tauri 2 · Rust · React 19 · TypeScript · Vite**.
 
 ```bash
 npm run check             # TypeScript, lint, frontend tests and Rust tests
-npm run test:unit         # Frontend settings/controller tests
-npm run test:integration  # Rust runtime tests
+npm run test:unit         # Frontend settings and controller tests
+npm run test:integration  # Rust runtime tests (cargo test)
 npm run vite:build        # Frontend production build
 npm run tauri:build       # Native production build and bundles
 ```
 
-Electron-specific tests and probes have been removed. Automated tests cover logic; native GUI acceptance remains separate.
-
 ```text
 EyeCare/
-├── app/renderer/   # React pages, overlays and Tauri invoke/listen bridge
+├── app/renderer/   # React pages, overlays and the Tauri invoke/listen bridge
 ├── app/shared/     # TypeScript contracts and settings validation
-├── src-tauri/      # Rust runtime, platform adapters, settings, tray and reminders
+├── src-tauri/      # Rust runtime: engine, platform adapters, settings, tray, reminders
 ├── tests/unit/     # Frontend controller and settings tests
 ├── resources/      # Source artwork and generated assets
 ├── scripts/        # Asset generation
-└── docs/           # Migration notes and historical acceptance evidence
+└── docs/           # Migration notes, acceptance evidence and README imagery
 ```
 
-The Rust runtime owns timing and reminder state. Pages display snapshots and send commands. Closing the main window keeps the tray runtime active.
+The Rust runtime owns timing and reminder state. Pages render snapshots and send commands; closing the main window hides it and leaves the tray runtime running.
 
-## Privacy and configuration
+## Platform support
 
-- EyeCare does not collect keystroke content, mouse trajectories, or screen images. It uses only system activity and idle state for timing.
-- Settings are stored in `settings.json` in Tauri’s application data directory (`org.eyecare.desktop`). The runtime imports existing settings from the legacy EyeCare directory when needed.
-- The last valid configuration is backed up as `settings.last-good.json`. Before upgrading a valid legacy configuration, the original file is preserved as `settings.v1-backup.json`.
-- Upgrades from older versions preserve the eight core choices; legacy advanced parameters no longer affect runtime behavior.
-- Restarting restores settings and starts a new cycle. Reminders missed while the app was closed are not replayed.
+macOS, Windows and Linux are all build targets. macOS ships a native adapter for input, clock and lock state; Windows and Linux currently report reduced capabilities and suppress reminders whenever a critical state is unknown.
+
+Full parity on Windows and Linux — physical lock and sleep detection, multi-display coverage, notification delivery and launch at login — still needs on-device acceptance. Files under `docs/` record earlier implementation evidence and the Tauri migration checklist; historical results from the retired Electron implementation do not establish behaviour here.
+
+## Privacy
+
+- EyeCare reads system activity and idle state only. It never records keystroke content, pointer trajectories or screen images, and it makes no network requests.
+- Settings live in `settings.json` inside Tauri's application data directory for `org.eyecare.desktop`. On first run the app imports an existing configuration from the legacy EyeCare directory.
+- The last valid configuration is kept as `settings.last-good.json`; a legacy file is preserved as `settings.v1-backup.json` before it is upgraded.
+- Upgrading from an older version keeps your eight core choices; retired advanced parameters no longer affect runtime behaviour.
+- Restarting restores your settings and starts a fresh cycle. Reminders missed while the app was closed are not replayed.
 
 ## FAQ
 
-### What should I do if macOS system notifications fail?
+**macOS notifications never appear.**
+Test with the bundled app, then check System Settings → Notifications → EyeCare. Permission state, Focus modes and screen sharing can all swallow banners. A successful submission is not proof of a visible banner.
 
-Test the bundled app and check System Settings → Notifications → EyeCare. Permission, Focus and screen sharing can affect banners. Successful submission does not guarantee visible delivery.
+**The countdown stopped moving, or reminders stopped arriving.**
+Under accumulated active time, accumulation pauses once the 60-second activity window expires. Manual pause, locking, sleep, long idle time or an unconfirmed critical capability also suppress reminders. Resume from the tray or the Overview page after a manual pause.
 
-### Why has time accumulation or a reminder stopped?
+**Launch at login did not take effect.**
+Read the error the app reports, then check your system's login item settings. When registration or the write fails, EyeCare keeps the last valid configuration and tries to restore the previous system state. You can retry in the app.
 
-Accumulated active time mode pauses accumulation after the 60-second activity window expires. Manual pause, locking, sleep, extended idle time, or an unconfirmed critical system state suppresses new reminders. After a manual pause, choose Resume reminders (恢复提醒) to continue.
+**The build succeeded — where is the app?**
+Look in `src-tauri/target/release/bundle/` after `npm run make`. `npm run package` compiles on purpose without producing installers.
 
-### Why did launch at login not take effect?
-
-Check the app's save error message and your system's login item settings first. If registration or saving fails, the app keeps the previous valid configuration and attempts to restore the prior system state. You can retry in the app.
-
-### The build succeeded. Where is the complete app?
-
-Check `src-tauri/target/release/bundle/` after `npm run make`. `npm run package` deliberately compiles without generating installers.
+**Can I change the fade duration, wording or sound?**
+No. Those follow fixed conventions so the reminder stays predictable. The eight options above are the whole configuration surface.
 
 ## Contributing
 
-Report bugs or suggest improvements through [Issues](https://github.com/ShenZiLi/EyeCare/issues), and submit changes through [Pull Requests](https://github.com/ShenZiLi/EyeCare/pulls).
+Report bugs and propose improvements through [Issues](https://github.com/ShenZiLi/EyeCare/issues); send code through [Pull Requests](https://github.com/ShenZiLi/EyeCare/pulls).
 
-When reporting an issue, include your OS version, CPU architecture, desktop environment or X11 / Wayland session, EyeCare version, reproduction steps, expected behavior, and error screenshots. Do not submit credentials or configuration files containing private information.
+A useful issue includes your OS version, CPU architecture, desktop environment or X11/Wayland session, EyeCare version, reproduction steps, expected behaviour, and screenshots of any error. Never attach credentials or configuration files containing private data.
 
-Run the relevant checks before submitting code, and add focused tests for behavior changes. For changes involving system capabilities, describe the real-device test environment and any areas that remain unverified. See the [repository contributors](https://github.com/ShenZiLi/EyeCare/graphs/contributors) for contribution history.
+Run the relevant checks before opening a pull request and add focused tests for behaviour changes. For anything touching system capabilities, describe the real-device environment you tested on and note what remains unverified.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE). Copyright © 2026 EyeCare contributors.
+[MIT](LICENSE) © 2026 EyeCare contributors
