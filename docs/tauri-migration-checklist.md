@@ -16,7 +16,9 @@
 | 1 · Tauri 骨架 | 完成 | `src-tauri/` 已生成并配置（identifier `org.eyecare.desktop`、`windows: []`、`macOSPrivateApi`）；`app/renderer/bridge.ts` 已就绪；`npm run vite:dev` / `vite:build` 已接入；`lib.rs` 用 `WebviewWindowBuilder` 创建主窗口（600×500、`?surface=main`、标签 `main`），并注册 `get_snapshot` / `settings_requested`，前端可直接拿到快照。其余 14 个命令留到 Phase 6 |
 | 2 · 定时引擎移植 | 完成 | `src-tauri/src/engine.rs` + `src-tauri/src/engine/tests.rs`，`cargo test` 28 项全部通过 |
 | 3 · 平台原生桥 | 完成（macOS） | `src-tauri/src/platform/`：`mod.rs` 移植 `PlatformAdapter`（连续时钟回退、能力报告、显示器、系统主题），`macos.rs` 移植 `createMacProvider`（`mach_continuous_time`、`CGEventSourceSecondsSinceLastEventType`、会话字典 + IOKit `IOConsoleLocked`）。Windows/Linux 按约定先整体降级为 `unsupported`。`reduceMotion` / `reduceTransparency` / `sleeping` 属「外观/系统事件」，留到 Phase 4 |
-| 4–8 | 未开始 | — |
+| 4 · 窗口/托盘/覆盖层/通知 | 未开始 | 主窗口关闭隐藏、macOS 隐藏 Dock 图标、托盘菜单与倒计时、覆盖层窗口、通知、外观与电源事件 |
+| 5 · 设置持久化 | 部分完成 | `src-tauri/src/settings/`：`validation.rs`（V2 严格校验 + V1 迁移校验）、`store.rs`（原子写 + `fsync`、`link` 留档、V1→V2 迁移、`revision` 乐观并发）、`mod.rs`（旧 Electron 数据目录一次性补齐）。`cargo test` 新增 14 项用例与 TS 侧同一组向量全部通过。`lib.rs` 启动时从仓库读入设置与 `revision`，并把启动期告警并入每份快照。**自启（`autostart.ts` / `save-with-login.ts`）未开始** |
+| 6–8 | 未开始 | — |
 
 
 ## 0. 迁移原则（先定边界）
@@ -149,15 +151,15 @@ graph TB
 
 ### Phase 5 · 设置持久化与自启
 
-- [ ] **SettingsStore 移植**（`settings-store.ts`）
-  - [ ] 同款原子写：临时文件 + `fsync` + `rename`，文件权限 `0o600`
-  - [ ] 三份文件路径与命名保持一致（`settings.json` / `settings.last-good.json` / `settings.v1-backup.json`）
-  - [ ] 备份发布用 `link` 保证"永不覆盖第一份"（`L45-L60`）
-  - [ ] V1→V2 迁移与 `revision` 乐观并发（`SETTINGS_CONFLICT`）
-- [ ] **`data dir` 兼容迁移（必做）**
-  - [ ] 现状：Electron `app.getPath('userData')` = `~/Library/Application Support/EyeCare`
-  - [ ] Tauri `app_data_dir()` 默认基于 bundle identifier，路径不同
-  - [ ] 首启做一次性迁移：老目录存在且新目录缺失时搬运三份设置文件，失败时保留原文件并给出 warning
+- [x] **SettingsStore 移植**（`settings-store.ts` → `settings/store.rs`）
+  - [x] 同款原子写：临时文件 + `fsync` + `rename`，文件权限 `0o600`
+  - [x] 三份文件路径与命名保持一致（`settings.json` / `settings.last-good.json` / `settings.v1-backup.json`）
+  - [x] 备份发布用 `link` 保证"永不覆盖第一份"（`L45-L60`）
+  - [x] V1→V2 迁移与 `revision` 乐观并发（`SETTINGS_CONFLICT`）
+- [x] **`data dir` 兼容迁移（必做）**
+  - [x] 现状：Electron `app.getPath('userData')` = `~/Library/Application Support/EyeCare`
+  - [x] Tauri `app_data_dir()` 默认基于 bundle identifier，路径不同
+  - [x] 首启做一次性迁移：老目录存在且新目录缺失时搬运三份设置文件，失败时保留原文件并给出 warning
 - [ ] **自启**（`autostart.ts`）
   - [ ] 基础开关用 `tauri-plugin-autostart`（macOS launchd / Windows 注册表 / Linux `.desktop`）
   - [ ] 迁移 `prepareLoginChange` 的 **capture → apply → 校验 → rollback** 语义（Windows 需保留 `StartupApproved` 二进制值校验）
