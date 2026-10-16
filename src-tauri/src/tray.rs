@@ -137,7 +137,10 @@ impl TrayPresenter {
                 standard_icon(dark)
             };
             if let Some(image) = image {
-                let _ = tray.set_icon(Some(image));
+                // macOS 必须用原子方法连同模板标志一起下发：模板是 NSImage 自身的属性，
+                // 单独的 `set_icon` 会换成新图并使标志丢失，图标退回原始彩色（深底 + 白眼），
+                // 在深色菜单栏上几乎不可见。非 macOS 平台该方法内部回退为 `set_icon`。
+                let _ = tray.set_icon_with_as_template(Some(image), cfg!(target_os = "macos"));
             }
             self.icon_key = key;
         }
