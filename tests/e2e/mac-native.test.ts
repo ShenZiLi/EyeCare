@@ -67,3 +67,94 @@ test('isolated macOS development instances coexist without sharing preferences o
     if (failures.length) throw new AggregateError(failures.map(result => result.reason), 'Isolated macOS verification cleanup failed');
   }
 });
+
+test('macOS close keeps the tray while hiding the Dock and reopening restores focus', async () => {
+  test.skip(process.platform !== 'darwin', 'macOS Dock lifecycle regression');
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'eyecare-mac-dock-'));
+  const executablePath = process.env.EYECARE_TEST_EXECUTABLE;
+  const environment = Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[0] !== 'ELECTRON_RUN_AS_NODE'));
+  let application: ElectronApplication | undefined;
+  try {
+    application = await electron.launch({ ...(executablePath ? { executablePath, args: [`--user-data-dir=${directory}`] } : { args: [path.resolve('.')] }), env: { ...environment, EYECARE_TEST_USER_DATA: directory }, timeout: 15000 });
+    const desktop = application;
+    const child = desktop.process();
+    expect(await desktop.evaluate(({ app }) => ({ userData: app.getPath('userData'), packaged: app.isPackaged }))).toEqual({ userData: directory, packaged: Boolean(executablePath) });
+    const page = await desktop.firstWindow();
+    await expect(page.getByRole('heading', { name: '概览', exact: true })).toBeVisible();
+    const windowState = () => desktop.evaluate(({ app, BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows().find(window => new URL(window.webContents.getURL()).searchParams.get('surface') === 'main')!;
+      return { visible: window.isVisible(), focused: window.isFocused(), minimized: window.isMinimized(), dock: app.dock!.isVisible() };
+    });
+    await expect.poll(windowState).toMatchObject({ visible: true, dock: true });
+    expect((await page.evaluate(() => window.eyeCare.getSnapshot())).capabilities.tray.state).toBe('available');
+
+    // Resolve the first-close information dialog without operating the real
+    // desktop. The native window, Dock and application lifecycle remain real.
+    await desktop.evaluate(({ dialog }) => {
+      dialog.showMessageBox = async () => ({ response: 0, checkboxChecked: false });
+    });
+    const closeMain = () => desktop.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows().find(window => new URL(window.webContents.getURL()).searchParams.get('surface') === 'main')!.close();
+    });
+    await closeMain();
+    await expect.poll(windowState).toMatchObject({ visible: false, dock: false });
+    expect((await page.evaluate(() => window.eyeCare.getSnapshot())).capabilities.tray.state).toBe('available');
+
+    await desktop.evaluate(({ app }) => { app.emit('activate'); });
+    await expect.poll(windowState).toMatchObject({ visible: true, focused: true, dock: true });
+    // Closing again immediately exercises Electron's Dock.hide cooldown.
+    await closeMain();
+    await expect.poll(windowState).toMatchObject({ visible: false, dock: false });
+    expect((await page.evaluate(() => window.eyeCare.openSettings())).ok).toBe(true);
+    await expect(page.getByRole('heading', { name: '通用设置', exact: true })).toBeVisible();
+    await expect.poll(windowState).toMatchObject({ visible: true, focused: true, dock: true });
+
+    // A queued hide must not hide a subsequently reopened main window.
+    await closeMain();
+    await desktop.evaluate(({ app }) => { app.emit('activate'); });
+    await expect.poll(windowState).toMatchObject({ visible: true, focused: true, dock: true });
+    await page.waitForTimeout(1200);
+    expect(await windowState()).toMatchObject({ visible: true, dock: true });
+    await desktop.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0].minimize(); });
+    await expect.poll(windowState).toMatchObject({ minimized: true, dock: true });
+    await desktop.evaluate(({ app }) => { app.emit('activate'); });
+    await expect.poll(windowState).toMatchObject({ visible: true, focused: true, minimized: false, dock: true });
+
+    await closeMain();
+    await expect.poll(windowState).toMatchObject({ visible: false, dock: false });
+    const previewWindow = desktop.waitForEvent('window');
+    expect((await page.evaluate(async () => {
+      const { settings } = await window.eyeCare.getSnapshot();
+      settings.reminder = { visual: 'mask', soundEnabled: false };
+      return window.eyeCare.preview(settings);
+    })).ok).toBe(true);
+    const overlay = await previewWindow;
+    await expect(overlay.getByRole('button', { name: '知道了', exact: true })).toBeVisible();
+    expect(await windowState()).toMatchObject({ visible: false, dock: false });
+    expect((await page.evaluate(() => window.eyeCare.cancelPreview())).ok).toBe(true);
+
+    // Hold Dock.show's completion across a new close request. Its late
+    // resolution must not reopen either the main window or the Dock icon.
+    const pendingShow = await desktop.evaluateHandle(({ app }) => {
+      const show = app.dock!.show.bind(app.dock);
+      let complete: (() => void) | undefined;
+      app.dock!.show = () => new Promise<void>(resolve => { complete = () => { void show().then(resolve); }; });
+      return { started: () => !!complete, finish: () => { app.dock!.show = show; complete!(); } };
+    });
+    await desktop.evaluate(({ app }) => { app.emit('activate'); });
+    await expect.poll(() => pendingShow.evaluate(control => control.started())).toBe(true);
+    await closeMain();
+    await pendingShow.evaluate(control => control.finish());
+    await expect.poll(windowState).toMatchObject({ visible: false, dock: false });
+    await page.waitForTimeout(1200);
+    expect(await windowState()).toMatchObject({ visible: false, dock: false });
+    const closed = desktop.waitForEvent('close');
+    expect((await page.evaluate(() => window.eyeCare.quit())).ok).toBe(true);
+    await closed;
+    application = undefined;
+    expect(child.exitCode).toBe(0);
+  } finally {
+    try { if (application) await closeOwnedApplication(application); }
+    finally { await rm(directory, { recursive: true, force: true }); }
+  }
+});

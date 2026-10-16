@@ -35,6 +35,14 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run make
+      - name: Verify packaged macOS Dock lifecycle
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          executable=$(find out -type f -path '*.app/Contents/MacOS/eyecare' -print -quit)
+          test -n "$executable"
+          EYECARE_TEST_EXECUTABLE="$GITHUB_WORKSPACE/$executable" npx playwright test tests/e2e/mac-native.test.ts --grep 'macOS close'
       - uses: actions/upload-artifact@v4
         with:
           name: EyeCare-${{ runner.os }}-${{ runner.arch }}

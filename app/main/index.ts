@@ -29,6 +29,10 @@ let settingsRequested = false;
 let currentPreviewId: string | null = null;
 let latestPreviewResult: PreviewResult | null = null;
 let previewSequence = 0;
+let mainVisibilityGeneration = 0;
+let mainWindowWanted = false;
+let dockHideTimer: ReturnType<typeof setTimeout> | null = null;
+let lastDockTransitionAt = -Infinity;
 
 const presentedSnapshot = (): RuntimeSnapshot => {
   const snapshot = engine.getSnapshot();
@@ -64,24 +68,60 @@ function checkEligible(preview = false) {
   if (blocked.includes(snapshot.status)) throw new CommandError({ code: 'REMINDER_SUPPRESSED', message: snapshot.statusReason || '当前状态不允许提醒' });
 }
 function apply(update: EngineUpdate): Result<RuntimeSnapshot> { publish(update); return { ok: true, value: presentedSnapshot() }; }
+function cancelDockHide() {
+  if (dockHideTimer) clearTimeout(dockHideTimer);
+  dockHideTimer = null;
+}
+function hideMainDock(window: BrowserWindow) {
+  if (process.platform !== 'darwin') return;
+  cancelDockHide();
+  if (quitting || mainWindowWanted || mainWindow !== window || window.isDestroyed() || window.isVisible() || !hasConfirmedTray()) return;
+  // Electron ignores rapid Dock.hide calls; a hide immediately after an
+  // asynchronous Dock.show can also lose the native transition. Wait for both.
+  // Re-check the window when the delay expires so reopening cancels this work.
+  const delay = Math.max(0, lastDockTransitionAt + 1100 - performance.now());
+  if (delay) dockHideTimer = setTimeout(() => hideMainDock(window), delay);
+  else { app.dock!.hide(); lastDockTransitionAt = performance.now(); }
+}
 async function showMain(settings = false) {
+  if (quitting) return;
+  const generation = ++mainVisibilityGeneration;
+  mainWindowWanted = true;
+  cancelDockHide();
   if (settings) settingsRequested = true;
   if (!mainWindow || mainWindow.isDestroyed()) {
-    mainWindow = new BrowserWindow({ width: 600, height: 500, minWidth: 600, minHeight: 500, show: false, title: 'EyeCare', backgroundColor: nativeTheme.shouldUseDarkColors ? '#111A18' : '#F4F7F6', autoHideMenuBar: true, webPreferences: windowOptions() });
-    mainWindow.once('ready-to-show', () => mainWindow?.show());
-    mainWindow.on('close', event => {
+    const window = mainWindow = new BrowserWindow({ width: 600, height: 500, minWidth: 600, minHeight: 500, show: false, title: 'EyeCare', backgroundColor: nativeTheme.shouldUseDarkColors ? '#111A18' : '#F4F7F6', autoHideMenuBar: true, webPreferences: windowOptions() });
+    let closeNoticePending = false;
+    window.on('close', event => {
       if (quitting || !hasConfirmedTray()) return;
       event.preventDefault();
+      if (closeNoticePending) return;
+      const closeGeneration = ++mainVisibilityGeneration;
+      const hide = () => {
+        closeNoticePending = false;
+        if (quitting || closeGeneration !== mainVisibilityGeneration || window.isDestroyed() || mainWindow !== window || !hasConfirmedTray()) return;
+        mainWindowWanted = false;
+        window.hide();
+        hideMainDock(window);
+      };
       if (!explainedBackground) {
         explainedBackground = true;
-        void dialog.showMessageBox(mainWindow!, { type: 'info', title: 'EyeCare 继续在后台运行', message: '关闭窗口后，护眼提醒会继续运行。', detail: '在托盘菜单选择“打开概览”可再次打开；选择“退出 EyeCare”才会停止提醒。', buttons: ['知道了'] }).then(() => mainWindow?.hide());
-      } else mainWindow?.hide();
+        closeNoticePending = true;
+        void dialog.showMessageBox(window, { type: 'info', title: 'EyeCare 继续在后台运行', message: '关闭窗口后，护眼提醒会继续运行。', detail: '在托盘菜单选择“打开概览”可再次打开；选择“退出 EyeCare”才会停止提醒。', buttons: ['知道了'] }).then(hide, hide);
+      } else hide();
     });
-    mainWindow.on('closed', () => { mainWindow = null; });
-    await loadSurface(mainWindow, 'main');
+    window.on('closed', () => { if (mainWindow === window) { mainWindow = null; mainWindowWanted = false; ++mainVisibilityGeneration; cancelDockHide(); } });
+    await loadSurface(window, 'main');
   }
-  mainWindow.show(); mainWindow.focus();
-  if (settings) mainWindow.webContents.send('eyecare:open-settings');
+  const window = mainWindow;
+  if (process.platform === 'darwin' && !app.dock!.isVisible()) {
+    await app.dock!.show();
+    lastDockTransitionAt = performance.now();
+  }
+  if (quitting || generation !== mainVisibilityGeneration || window.isDestroyed() || mainWindow !== window) { hideMainDock(window); return; }
+  if (window.isMinimized()) window.restore();
+  window.show(); window.focus();
+  if (settings) window.webContents.send('eyecare:open-settings');
 }
 function quit() { quitting = true; coordinator?.cancel(); if (interval) clearInterval(interval); adapter?.dispose(); tray?.dispose(); app.quit(); }
 
@@ -173,7 +213,7 @@ if (squirrelStartup || !app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', () => { void showMain(); });
   app.on('window-all-closed', () => { if (!hasConfirmedTray()) quit(); });
-  app.on('before-quit', () => { quitting = true; coordinator?.cancel(); if (interval) clearInterval(interval); adapter?.dispose(); tray?.dispose(); });
+  app.on('before-quit', () => { quitting = true; cancelDockHide(); coordinator?.cancel(); if (interval) clearInterval(interval); adapter?.dispose(); tray?.dispose(); });
   app.whenReady().then(async () => {
     app.setAppUserModelId('org.eyecare.desktop');
     Menu.setApplicationMenu(null);

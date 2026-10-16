@@ -18,7 +18,7 @@
 
 EyeCare is a desktop break reminder that lives in your system tray, built for macOS, Windows, and Linux. It reminds you to rest based on mouse or keyboard activity, or at fixed intervals. Settings save automatically, and configuration and timing are handled locally.
 
-The project is under active development. The current version is **1.0.2**. Download installers and archives from [GitHub Releases](https://github.com/ShenZiLi/EyeCare/releases), or run from source and build locally. See [Platform support](#platform-support) for the scope of testing on each platform.
+The project is under active development. The current version is **1.0.3**. Download installers and archives from [GitHub Releases](https://github.com/ShenZiLi/EyeCare/releases), or run from source and build locally. See [Platform support](#platform-support) for the scope of testing on each platform.
 
 [Quick start](#quick-start) · [Usage](#usage) · [Local packaging](#local-packaging) · [FAQ](#faq) · [Contributing](#contributing)
 
@@ -183,7 +183,7 @@ EyeCare/
 └── .github/         # Cross-platform checks and build workflows
 ```
 
-The main process exclusively owns timing and reminder state. Pages handle display and settings input. Timing does not depend on page timers, so the app can keep running in the tray after the window closes.
+The main process exclusively owns timing and reminder state. Pages handle display and settings input. Timing does not depend on page timers, so the app can keep running in the tray after the window closes. On macOS, closing the main window also hides its Dock icon while keeping the menu bar icon and reminders running. Reopening the main window restores the Dock icon.
 
 ## Privacy and configuration
 
