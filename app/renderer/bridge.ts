@@ -2,12 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { ChannelResult, EyeCareBridge, OverlayState, Result, RuntimeSnapshot, SettingsV2 } from '../shared/contracts';
 
-/**
- * Tauri 侧的 `EyeCareBridge` 实现。
- *
- * 与 Electron 的 `app/preload/index.ts` 保持同形状：命令走 `invoke`，
- * 推送走 `listen`，因此 `app/renderer/*` 无需任何改动。
- */
+/** Tauri IPC bridge: commands use invoke; runtime updates use listen. */
 
 /** 事件订阅需要先完成的异步注册，用一次性标记保证卸载时不漏掉。 */
 const subscribe = <T>(channel: string, listener: (value: T) => void): (() => void) => {

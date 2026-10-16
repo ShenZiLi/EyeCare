@@ -9,7 +9,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT 许可证" /></a>
   <img src="https://img.shields.io/badge/Node.js-24-339933?logo=nodedotjs&amp;logoColor=white" alt="Node.js 24" />
-  <img src="https://img.shields.io/badge/Electron-44-47848F?logo=electron&amp;logoColor=white" alt="Electron 44" />
+  <img src="https://img.shields.io/badge/Tauri-2-24C8D8?logo=tauri&amp;logoColor=white" alt="Tauri 2" />
 </p>
 
 <p align="center">
@@ -18,7 +18,7 @@
 
 EyeCare 是一款常驻托盘的桌面护眼提醒工具，面向 macOS、Windows 和 Linux。它根据鼠标或键盘的活跃时间提醒你休息，也支持固定周期提醒。设置修改后自动保存，配置与计时在本机处理。
 
-项目仍在迭代中，当前版本为 **1.0.3**。可从 [GitHub Releases](https://github.com/ShenZiLi/EyeCare/releases) 下载安装包和压缩包，也可从源码运行或自行打包。各平台的实际验证范围见[平台支持](#平台支持)。
+当前分支仅保留 **Tauri 2 + Rust** 实现，版本为 **1.0.3**。既有发行包及原生验收记录可能来自旧 Electron 实现，不能作为当前 Tauri 分支的验收结论。
 
 [快速开始](#快速开始) · [使用说明](#使用说明) · [本地打包](#本地打包) · [常见问题](#常见问题) · [参与贡献](#参与贡献)
 
@@ -45,6 +45,8 @@ EyeCare 是一款常驻托盘的桌面护眼提醒工具，面向 macOS、Window
 
 ### 从源码启动
 
+还需通过 mise 安装 Rust **1.90+**（`mise install`），并准备目标平台构建依赖：macOS 的 Xcode 命令行工具、Windows 的 MSVC C++ 工具与 WebView2，或 Linux 的 WebKitGTK 4.1 等开发库。
+
 ```bash
 git clone https://github.com/ShenZiLi/EyeCare.git
 cd EyeCare
@@ -52,9 +54,7 @@ npm ci
 npm start
 ```
 
-`npm start` 启动 Electron 开发应用和本地 Vite 服务。macOS 系统通知需要完整签名的应用包，验证通知请使用 `npm run make` 生成的 `.app`。
-
-如果当前终端设置了 `ELECTRON_RUN_AS_NODE`，请先移除该环境变量，否则 Electron 会按 Node.js 进程运行。
+`npm start` 启动 Tauri 应用与本地 Vite 服务。`npm run vite:dev` 仅启动前端预览，原生命令需要在 Tauri 宿主中使用。
 
 ## 使用说明
 
@@ -96,99 +96,52 @@ npm start
 
 ## 平台支持
 
-下表区分支持目标与已有实机证据，框架支持或构建成功不代表完整平台验收。
+构建目标为 macOS、Windows 和 Linux。macOS 已有原生输入、时钟与锁屏适配；Windows 和 Linux 当前会报告能力受限，关键状态未知时暂停提醒。平台功能对齐、物理锁屏和睡眠、多显示器、通知送达及登录自启仍需 Tauri 实机验收。
 
-| 平台 | 支持目标 | 当前验证情况 |
-| --- | --- | --- |
-| macOS | 14+，Apple Silicon / Intel | macOS 26.4 ARM64 已有原生计时、输入、打包、托盘与提醒验证；本地签名包通知提交已验证。Intel、其他系统版本及部分物理场景待验证 |
-| Windows | Windows 11 x64 | 已有安装、升级、启动路径、原生计时与提醒周期验证；部分物理场景待验证 |
-| Linux X11 | Ubuntu 24.04 GNOME、KDE 6，x64 | 已实现适配器和打包配置，尚无 Linux 实机验收记录 |
-| Linux Wayland | 桌面相关能力受限 | 全会话输入检测、定位与全屏覆盖尚未完成可靠验证，不能视为完整支持 |
-
-物理锁屏、睡眠、多显示器、虚拟桌面、启动登录和长时间运行等逐项进展见[验收记录](docs/acceptance.md)与[原生能力证据](docs/platform-evidence.md)。
+`docs/` 中保留迁移进度和旧版实现的历史证据。旧 Electron 验收结果不代表 Tauri 行为已获验证。
 
 ## 本地打包
 
 ```bash
-# 生成当前平台的应用目录
-npm run package
-
-# 生成当前平台的安装包或压缩包
-npm run make
+npm run package   # 编译应用，不生成安装包
+npm run make      # 编译并生成原生安装包
 ```
 
-应用目录位于 `out/`，分发产物位于 `out/make/`。
+产物位于 `src-tauri/target/release/bundle/`：macOS 为 DMG/app，Windows 为 MSI/NSIS，Linux 为 deb/rpm/AppImage。请在目标系统上构建，CI 覆盖四组系统及架构。
 
-| 平台 | 产物 |
-| --- | --- |
-| macOS | `.app` 应用目录、ZIP |
-| Windows | Squirrel 安装程序、ZIP |
-| Linux x64 | deb、rpm、ZIP、AppImage |
-
-Linux 构建需要 `fakeroot`、`rpm` 和 `appimagetool`；当前工作流使用 appimagetool 1.9.1。桌面运行需要 GTK3、NSS、XScreenSaver、音频库和会话 D-Bus。AppImage 保留 Chromium 安全沙箱，需要目标环境支持对应沙箱机制。安装依赖的示例见[构建工作流](.github/workflows/build.yml)。
-
-### 签名与发布
-
-macOS 未配置 Developer ID 时，本地打包会对完整应用进行 **ad-hoc 签名**。这可用于本地运行和通知提交验证，不能代替 Developer ID 签名与公证。
-
-| 用途 | 构建环境变量 |
-| --- | --- |
-| macOS Developer ID 签名 | `EYECARE_SIGN_IDENTITY` |
-| macOS 公证，在签名基础上配置 | `EYECARE_APPLE_ID`、`EYECARE_APPLE_PASSWORD`、`EYECARE_APPLE_TEAM` |
-| Windows 安装程序签名 | `EYECARE_WINDOWS_CERT_FILE`、`EYECARE_WINDOWS_CERT_PASSWORD` |
-
-凭据应通过本机或 CI 环境提供，不要写入仓库。未配置 Windows 证书时产物不带对应发布签名。
-
-[GitHub Actions 工作流](.github/workflows/build.yml)在 Windows、macOS ARM64 / Intel 和 Ubuntu 上检查与构建。发布安装包时，打开 **Actions → Verify and build desktop packages → Run workflow**，选择分支并保留默认启用的 **publish_release**。所有平台成功后，工作流以 `v<package.json 版本号>` 发布 GitHub Release，并附上原始安装包和压缩包。产物全程在 GitHub 云端 runner 与 Releases 之间流转，无需下载到本地。关闭 **publish_release** 则只生成工作流 artifact；push 和 pull request 也只生成 artifact，不发布 Release。同版本已有草稿可以复用，已发布版本不可覆盖；再次发布前请先增加版本号。
+签名使用 Tauri 的平台配置，旧 Forge 签名环境变量已不再使用。仍可通过工作流的 `publish_release` 选项发布；已发布版本不能覆盖。
 
 ## 开发与验证
 
-技术栈：**Electron 44 · React 19 · TypeScript · Vite · Electron Forge · Koffi**。
+技术栈：**Tauri 2 · Rust · React 19 · TypeScript · Vite**。
 
 ```bash
-# 类型检查、lint、单元与集成测试
-npm run check
-
-# 构建最新主进程和页面后，运行真实 Electron 界面测试
-npm run package
-npm run test:e2e
+npm run check             # 类型检查、lint、前端及 Rust 测试
+npm run test:unit         # 前端设置与控制器测试
+npm run test:integration  # Rust 运行时测试
+npm run vite:build        # 前端生产构建
+npm run tauri:build       # 原生生产构建与打包
 ```
 
-也可分别运行 `npm run typecheck`、`npm run lint`、`npm run test:unit` 和 `npm run test:integration`。界面测试使用临时配置目录，不以测试结果替代原生平台验收。
-
-### 原生检查
-
-| 命令 | 用途 |
-| --- | --- |
-| `npm run probe:platform` | 只读检查当前平台的时钟、输入与会话状态 |
-| `npm run verify:macos-runtime` | Mac 原生一分钟周期、隐藏窗口、托盘及蒙版确认检查 |
-| `npm run verify:windows-runtime` | Windows 原生两个一分钟周期、隐藏窗口及提醒清理检查 |
-
-运行周期检查时会实际显示闪屏或蒙版，使用隔离配置，不修改用户偏好、登录项或通知授权。结果写入 `docs/` 中对应的 runtime evidence 文件。
-
-### 项目结构
+Electron 专属界面测试和探针已移除。自动测试验证逻辑，原生界面仍需独立实机验收。
 
 ```text
 EyeCare/
-├── app/
-│   ├── main/        # 计时、平台观察、配置持久化、提醒与托盘
-│   ├── preload/     # 受限 IPC 桥
-│   ├── renderer/    # React 设置页面及提醒界面
-│   └── shared/      # 共享类型、固定默认值与配置校验
-├── resources/       # 图标和内置资源
-├── scripts/         # 构建工具与原生验证脚本
-├── tests/           # 单元、集成与 Electron 界面测试
-├── docs/            # 平台证据、验收记录及截图
-├── design-system/   # 界面设计规范
-└── .github/         # 跨平台检查与构建工作流
+├── app/renderer/   # React 页面、覆盖层与 Tauri IPC 桥
+├── app/shared/     # TypeScript 契约与配置校验
+├── src-tauri/      # Rust 计时、平台适配、配置、托盘与提醒
+├── tests/unit/     # 前端控制器与设置测试
+├── resources/      # 源图与生成资源
+├── scripts/        # 资源生成工具
+└── docs/           # 迁移说明与历史验收证据
 ```
 
-主进程唯一持有计时与提醒状态，页面只负责展示和设置输入。计时不依赖页面定时器，关闭窗口后仍可在托盘运行。macOS 关闭主窗口后会隐藏 Dock 图标，保留菜单栏图标并继续提醒；重新打开主窗口时恢复 Dock 图标。
+Rust 运行时持有计时与提醒状态，页面负责展示快照和发送命令。关闭主窗口后仍可在托盘运行。
 
 ## 隐私与配置
 
 - 不采集按键内容、鼠标轨迹或屏幕画面，仅使用系统活动与空闲状态进行计时。
-- 设置保存在 Electron `userData` 应用目录中的 `settings.json`。
+- 设置保存在 Tauri 应用数据目录（`org.eyecare.desktop`）中的 `settings.json`。需要时从旧 EyeCare 目录导入已有设置。
 - 最后有效配置备份为 `settings.last-good.json`；有效旧版配置升级前保留 `settings.v1-backup.json` 原文件备份。
 - 旧版升级保留八项核心选择，旧高级参数不再影响运行。
 - 重启恢复设置并开始新周期，不补发关闭期间的提醒。
@@ -197,9 +150,7 @@ EyeCare/
 
 ### macOS 系统通知失败怎么办？
 
-使用 `npm run make` 生成的已签名 `.app`。若提示通知未被允许，请检查「系统设置 → 通知 → EyeCare → 允许通知」。首次出现系统授权提示时，需要由用户选择是否允许。
-
-通知成功提交不保证立即显示横幅，专注模式和屏幕共享等系统设置也可能影响显示。Electron 的通知签名要求见[官方文档](https://www.electronjs.org/docs/latest/api/notification)。
+请使用打包应用，并检查「系统设置 → 通知 → EyeCare」的权限。专注模式和屏幕共享可能影响横幅；成功提交不保证可见送达。
 
 ### 为什么暂时不累计或不提醒？
 
@@ -209,9 +160,9 @@ EyeCare/
 
 请先查看应用的保存错误提示和系统登录项设置。注册或保存失败时，应用保留原有效配置，并尝试恢复变更前的系统状态；可在应用中重试。
 
-### 构建成功但找不到完整应用？
+### 构建成功后在哪里找应用？
 
-同时检查 `out/` 中的应用和 `out/make/` 中的分发产物，不要只看命令退出状态。项目对 `@electron/packager` 的解压依赖有固定覆盖：使用 `@electron-internal/extract-zip@1.0.5`，要求 Node ≥22.12；建议使用仓库规定的 Node 24。
+运行 `npm run make` 后检查 `src-tauri/target/release/bundle/`。`npm run package` 仅编译，不生成安装包。
 
 ## 参与贡献
 

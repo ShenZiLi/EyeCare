@@ -9,6 +9,8 @@ src-tauri/target/
 target/
 
 node_modules/
+dist/
+# Historical local build artifacts
 .vite/
 out/
 test-results/

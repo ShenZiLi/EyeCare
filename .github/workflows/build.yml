@@ -7,7 +7,7 @@ on:
         type: boolean
         default: true
   push:
-    branches: [dev, main]
+    branches: [dev-tauri, dev, main]
   pull_request:
 permissions:
   contents: read
@@ -24,29 +24,28 @@ jobs:
         with:
           node-version: 24.15.0
           cache: npm
-      - name: Linux packaging dependencies
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Linux build dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm fakeroot libfuse2t64 libxss1 libgtk-3-0 libnss3 libasound2t64
-          curl --fail --location https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage --output appimagetool
-          chmod +x appimagetool
-          sudo mv appimagetool /usr/local/bin/appimagetool
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf
       - run: npm ci
-      - run: npm run check
-      - run: npm run make
-      - name: Verify packaged macOS Dock lifecycle
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          set -euo pipefail
-          executable=$(find out -type f -path '*.app/Contents/MacOS/eyecare' -print -quit)
-          test -n "$executable"
-          EYECARE_TEST_EXECUTABLE="$GITHUB_WORKSPACE/$executable" npx playwright test tests/e2e/mac-native.test.ts --grep 'macOS close'
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+      - run: npx tauri build
       - uses: actions/upload-artifact@v4
         with:
           name: EyeCare-${{ runner.os }}-${{ runner.arch }}
-          path: out/make/**
+          path: |
+            src-tauri/target/release/bundle/**/*.dmg
+            src-tauri/target/release/bundle/**/*.msi
+            src-tauri/target/release/bundle/**/*.exe
+            src-tauri/target/release/bundle/**/*.deb
+            src-tauri/target/release/bundle/**/*.rpm
+            src-tauri/target/release/bundle/**/*.AppImage
           if-no-files-found: error
   release:
     needs: build
@@ -116,9 +115,9 @@ jobs:
 
           cat > release-notes.md <<'NOTES'
           Choose the download for your operating system and CPU:
-          - Windows x64: Setup.exe installer or win32-x64 ZIP.
-          - macOS Apple Silicon: darwin-arm64 ZIP; Intel: darwin-x64 ZIP.
-          - Linux x64: deb, rpm, AppImage, or linux-x64 ZIP.
+          - Windows x64: MSI or NSIS installer.
+          - macOS Apple Silicon: aarch64 DMG; Intel: x64 DMG.
+          - Linux x64: deb, rpm, or AppImage.
 
           macOS packages use ad-hoc signing and are not Developer ID signed or notarized. Windows packages are unsigned because no signing certificate is configured.
           NOTES

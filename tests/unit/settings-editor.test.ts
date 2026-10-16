@@ -1,10 +1,20 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SettingsEditor } from '../../app/renderer/settings-editor';
-import { TimerEngine } from '../../app/main/engine/timer-engine';
+import { defaultSettings } from '../../app/shared/contracts';
 import type { Capabilities, Result, RuntimeSnapshot, SettingsV2 } from '../../app/shared/contracts';
 
 const caps = Object.fromEntries(['input', 'mouse', 'lock', 'overlay', 'notification', 'tray', 'launchAtLogin'].map(key => [key, { state: 'available', reason: '' }])) as unknown as Capabilities;
-function initial() { return { ...new TimerEngine().getSnapshot(), capabilities: caps, displays: [{ id: '1', label: 'Primary', primary: true, bounds: { x: 0, y: 0, width: 800, height: 600 }, scaleFactor: 1 }] }; }
+function initial(): RuntimeSnapshot {
+  return {
+    settings: defaultSettings(), settingsRevision: 0, sequence: 0,
+    status: 'starting', statusReason: '等待系统状态', elapsedActiveMs: 0, remainingMs: 30 * 60_000,
+    currentReminderId: null, currentPreviewId: null, latestPreviewResult: null,
+    theme: 'light', reduceMotion: false, reduceTransparency: false,
+    capabilities: caps,
+    displays: [{ id: '1', label: 'Primary', primary: true, bounds: { x: 0, y: 0, width: 800, height: 600 }, scaleFactor: 1 }],
+    latestReminderResult: null, restConfirmedCount: 0, warnings: [],
+  };
+}
 function fixture() {
   let effective = initial();
   const persist = vi.fn(async (revision: number, settings: SettingsV2): Promise<Result<RuntimeSnapshot>> => {

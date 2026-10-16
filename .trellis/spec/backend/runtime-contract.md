@@ -1,5 +1,8 @@
 # EyeCare Runtime Contract
 
+> Branch implementation: Tauri 2 only. Runtime ownership lives in `src-tauri/src/`; renderer IPC lives in `app/renderer/bridge.ts` using invoke/listen. Historical Electron API details and acceptance notes below describe the earlier implementation, not dependencies or verification requirements for this branch. Frontend output is `dist/`; native bundles are in `src-tauri/target/release/bundle/`. Run `npm run check` (frontend + Rust tests); native GUI acceptance remains separate. Legacy settings migration remains supported.
+
+
 Current contract: user-approved SettingsV2 simplification,2026-10-13. Product requirements: active task prd.md; native/release evidence: docs/acceptance.md. Local framework tests do not prove physical platform support.
 
 ## 1. Scope / Trigger
@@ -102,7 +105,7 @@ Wrong: absence of lock evidence means unlocked. Correct: unknown suppresses.
 - Preload is role/URL validated, renderer has no Node or remote content, production CSP remains local.
 - Capture WebContents IDs while alive; closed callbacks must not access destroyed webContents. Every delivery failure/cancel destroys all owned surfaces and stops audio.
 - Event readiness and playback reports match registered sender+ID+generation and original options. Appearance refresh must not restart audio/flash.
-- Named main/preload outputs avoid index.js collision; Koffi remains external and native modules unpacked.
+- Build the React frontend to `dist/` and compile the sole native runtime from `src-tauri/`. No main/preload bundle, Koffi or Forge dependency is used.
 - Development EYECARE_TEST_USER_DATA applies before single-instance lock and is ignored when packaged. Tests never change real OS permissions/login preferences.
 - Never infer Linux tray availability by allocating Tray. Unknown tray retains main-window recovery; unknown Wayland input/overlay remains explicit.
 

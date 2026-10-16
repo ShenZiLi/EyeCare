@@ -22,4 +22,4 @@ Good: autosave41-minute interval and12-minute idle threshold survive an in-fligh
 
 ## Quality check
 
-Run typecheck/lint and meaningful controller tests;rebuild then actualElectronGUI tests for surface changes. Verify8-choice inventory,all-page save/retry/restore,only-sound,mask/no-snooze and preview isolation. Preserve Mac-prefixed vs originalWindows screenshots. Actual desktop contrast/DPI/physical lock/sleep/multidisplay/signing remain host acceptance.
+Run typecheck/lint and meaningful controller tests;build the frontend and Tauri app for surface changes, then record native GUI acceptance separately. Verify8-choice inventory,all-page save/retry/restore,only-sound,mask/no-snooze and preview isolation. Preserve Mac-prefixed vs originalWindows screenshots. Actual desktop contrast/DPI/physical lock/sleep/multidisplay/signing remain host acceptance.

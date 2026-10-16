@@ -1,5 +1,8 @@
 # EyeCare UI Contract
 
+> Branch implementation: Tauri 2 only. Runtime ownership lives in `src-tauri/src/`; renderer IPC lives in `app/renderer/bridge.ts` using invoke/listen. Historical Electron API details and acceptance notes below describe the earlier implementation, not dependencies or verification requirements for this branch. Frontend output is `dist/`; native bundles are in `src-tauri/target/release/bundle/`. Run `npm run check` (frontend + Rust tests); native GUI acceptance remains separate. Legacy settings migration remains supported.
+
+
 Current: user-approved eight-choice SettingsV2,2026-10-13. Existing Liquid Glass tokens and native-host evidence remain under MASTER.md/docs/acceptance.md. This contract replaces legacy advanced/manual/snooze UI.
 
 ## 1. Scope / Trigger

@@ -1,3 +1,5 @@
+> Historical evidence: these records describe the retired Electron implementation. This branch now runs Tauri only; these results are not Tauri acceptance. The old probes and Electron test commands below are no longer available.
+
 # Platform evidence
 
 Windows evidence recorded 2026-10-10; macOS evidence added 2026-10-12 and updated2026-10-13. Interface availability and automated assertions are separate from native acceptance. Linux remains unavailable for native acceptance.

@@ -1,3 +1,5 @@
+> Historical evidence: these records describe the retired Electron implementation. This branch now runs Tauri only; these results are not Tauri acceptance. The old probes and Electron test commands below are no longer available.
+
 # Delivery acceptance audit
 
 Original scope: `.trellis/tasks/10-10-eyecare-product-design/prd.md`, R1–R16 and AC1–AC22. User authorized implementation on 2026-10-10. A local implementation/build is not release-complete acceptance.

@@ -22,8 +22,8 @@ Good: lock changes invalidate an immutable event generation before show. Base: s
 
 ## Quality check
 
-Run `npm run typecheck`, `npm run lint`, `npm run test:unit`, `npm run test:integration` for backend changes. Run packaged Electron e2e when command/window/native wiring changes; rebuild `.vite` first. Virtual-clock and mocked adapter tests prove logic only; native-host acceptance remains separate.
+Run `npm run typecheck`, `npm run lint`, `npm run test:unit`, `npm run test:integration` for backend changes. Run `npm run test:rust` for the Tauri runtime and build with `npm run package` when command/window/native wiring changes; frontend output is `dist/`. Native GUI acceptance must be recorded separately. Virtual-clock and mocked adapter tests prove logic only; native-host acceptance remains separate.
 
 ## Wrong vs correct
 
-Wrong: both `index.ts` build entries write `index.js`. Correct: explicit main/preload entry names. Wrong: any `file:` sender is trusted. Correct: exact registered local URL plus known WebContents/main frame and role authorization.
+The only native runtime is `src-tauri/`. Do not add Electron main/preload entries or Forge packaging. Enforce Tauri capability permissions and command/window role authorization; renderer input remains untrusted.

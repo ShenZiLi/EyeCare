@@ -4,7 +4,7 @@
   "version": "1.0.3",
   "identifier": "org.eyecare.desktop",
   "build": {
-    "frontendDist": "../.vite/renderer/main_window",
+    "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "npm run vite:dev",
     "beforeBuildCommand": "npm run vite:build"

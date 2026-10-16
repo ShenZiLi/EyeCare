@@ -1,3 +1,5 @@
+> 当前分支状态：已按分支范围清除 Electron 实现、依赖、Forge 构建与 Electron 测试，仅保留 Tauri。本文保留迁移对照及待验收项；原 Electron 源码路径和下方延后删除的策略仅为历史记录，当前以 `src-tauri/`、根目录脚本和 README 为准。清理不代表迁移清单中的未完成项已经通过验收。
+
 # EyeCare → Tauri 迁移清单
 
 > 目标：把 Electron 44 主进程替换为 Tauri 2（Rust 核心 + 系统 WebView），常驻内存 140MB → 40–80MB，安装包 ~180MB → ~10MB。
