@@ -17,8 +17,6 @@
   <a href="README.md">English</a> · <strong>简体中文</strong>
 </div>
 
-![EyeCare 手绘风概览](docs/images/overview-handdrawn.jpg)
-
 ## 特点
 
 - **统计的是活动，不是墙上的时间。** 离开电脑的时间不计入间隔，提醒会在你真正盯着屏幕一段时间之后才出现。
