@@ -17,8 +17,6 @@
   **English** · <a href="README.zh-CN.md">简体中文</a>
 </div>
 
-![EyeCare hand-drawn overview](docs/images/overview-handdrawn.jpg)
-
 ## Highlights
 
 - **Counts work, not wall-clock time.** Idle stretches do not consume your interval, so the reminder arrives when you have actually been staring at the screen.
