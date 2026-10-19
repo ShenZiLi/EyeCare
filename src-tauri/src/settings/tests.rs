@@ -305,6 +305,7 @@ fn accepts_the_documented_defaults_and_rejects_malformed_v2_payloads() {
     let result = validate_settings(&default_value());
     assert!(result.ok);
     assert_eq!(result.value.unwrap(), default_settings());
+    assert_eq!(default_settings().appearance.theme, ThemePreference::Handdrawn);
 
     for value in [json!(null), json!([]), json!({}), json!({ "schemaVersion": 3, "timer": {}, "reminder": {}, "appearance": {}, "general": {} })] {
         assert!(!validate_settings(&value).ok, "应拒绝：{value}");

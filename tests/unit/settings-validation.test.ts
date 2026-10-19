@@ -7,6 +7,7 @@ describe('SettingsV2 strict trust boundary', () => {
     const settings = defaultSettings(); const result = validateSettings(settings);
     expect(result).toEqual({ ok: true, value: settings });
     expect(settings.schemaVersion).toBe(2);
+    expect(settings.appearance.theme).toBe('handdrawn');
     expect(Object.keys(settings.timer)).toEqual(['mode', 'intervalMinutes', 'longIdleMinutes']);
     expect(Object.keys(settings.reminder)).toEqual(['visual', 'soundEnabled']);
     expect(Object.keys(settings.appearance)).toEqual(['theme', 'showTrayCountdown']);

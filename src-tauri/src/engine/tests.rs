@@ -560,7 +560,9 @@ fn timer_changes_await_immutable_live_reminder_completion_while_theme_applies_im
 
 #[test]
 fn system_theme_reacts_immediately_and_manual_override_persists() {
-    let mut harness = Harness::new(default_settings());
+    let mut system_settings = default_settings();
+    system_settings.appearance.theme = crate::contracts::ThemePreference::System;
+    let mut harness = Harness::new(system_settings);
     harness.run(10, |_| {});
     assert_eq!(harness.advance(1_000, |sample| sample.system_theme = Theme::Dark).snapshot.theme, EffectiveTheme::Dark);
 
