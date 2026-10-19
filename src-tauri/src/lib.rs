@@ -26,7 +26,7 @@ use uuid::Uuid;
 use autostart::{AutostartContext, file_exists, prepare_login_change, system_backend};
 use contracts::{
     AppError, Capability, CapabilityState, CommandResult, EngineEffect, EngineUpdate, OverlayState, ReminderEvent,
-    ReminderKind, RuntimeSnapshot, RuntimeStatus, SettingsV2, Theme, VisualMode, resolve_settings,
+    ReminderKind, RuntimeSnapshot, RuntimeStatus, SettingsV2, EffectiveTheme, VisualMode, resolve_settings,
 };
 use engine::TimerEngine;
 use platform::{ActivitySource, PlatformAdapter};
@@ -230,10 +230,11 @@ fn apply(handle: &AppHandle, state: &AppState, update: &EngineUpdate) -> Command
 }
 
 /// 外观三元组里的主题取值，与 TS 的 `snapshot.theme` 字面量一致。
-fn theme_key(theme: Theme) -> &'static str {
+fn theme_key(theme: EffectiveTheme) -> &'static str {
     match theme {
-        Theme::Dark => "dark",
-        Theme::Light => "light",
+        EffectiveTheme::Dark => "dark",
+        EffectiveTheme::Light => "light",
+        EffectiveTheme::Handdrawn => "handdrawn",
     }
 }
 
@@ -333,8 +334,8 @@ fn has_confirmed_tray(state: &AppState) -> bool {
 fn create_main_window(handle: &AppHandle) -> tauri::Result<WebviewWindow> {
     let window = WebviewWindowBuilder::new(handle, MAIN_WINDOW, WebviewUrl::App("index.html?surface=main".into()))
         .title("EyeCare")
-        .inner_size(600.0, 500.0)
-        .min_inner_size(600.0, 500.0)
+        .inner_size(600.0, 620.0)
+        .min_inner_size(600.0, 520.0)
         .visible(false)
         .build()?;
     let close_handle = handle.clone();

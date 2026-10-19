@@ -3,6 +3,7 @@ import './bridge';
 import { App } from './App';
 import { Overlay } from './Overlay';
 import './styles.css';
+import './themes.css';
 
 const surface = new URLSearchParams(window.location.search).get('surface');
 document.body.dataset.surface = surface ?? 'main';

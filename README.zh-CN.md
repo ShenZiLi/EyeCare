@@ -17,7 +17,7 @@
   <a href="README.md">English</a> · <strong>简体中文</strong>
 </div>
 
-![EyeCare 概览](docs/images/overview-dark.png)
+![EyeCare 手绘风概览](docs/images/overview-handdrawn.jpg)
 
 ## 特点
 
@@ -37,19 +37,19 @@
 | 托盘 | 菜单栏倒计时、暂停 / 恢复、立即提醒、设置、退出 |
 | 手动暂停 | 一直保持暂停，直到你主动恢复 |
 | 设置 | 八项核心选项，自动保存，写入磁盘前先校验 |
-| 外观 | 亮色 / 暗色 / 跟随系统，液态玻璃质感，尊重减弱动态与减弱透明偏好 |
+| 外观 | 默认手绘风，也可选亮色 / 暗色 / 跟随系统；尊重减弱动态与减弱透明偏好 |
 
 ## 界面截图
 
 | 概览 | 触发条件 |
 | --- | --- |
-| ![概览](docs/images/overview-dark.png) | ![触发条件](docs/images/trigger-dark.png) |
+| ![手绘风概览](docs/images/overview-handdrawn.jpg) | ![手绘风触发条件](docs/images/trigger-handdrawn.jpg) |
 | **提醒方式** | **通用设置** |
-| ![提醒方式](docs/images/reminder-dark.png) | ![通用设置](docs/images/general-dark.png) |
+| ![手绘风提醒方式](docs/images/reminder-handdrawn.jpg) | ![手绘风通用设置](docs/images/general-handdrawn.jpg) |
 
 确认蒙版是唯一会等待你回应的方式——点击「知道了」记为一次确认的休息，并开始下一轮：
 
-![确认蒙版](docs/images/overlay-acknowledge-dark.png)
+![手绘风确认蒙版](docs/images/overlay-acknowledge-handdrawn.jpg)
 
 ## 一轮提醒如何走完
 
@@ -97,7 +97,7 @@ flowchart LR
 | 触发条件 | 空闲清零时间 | 10 分钟 | 1–120 的整数分钟；仅累计活跃时间模式显示 |
 | 提醒方式 | 主视觉方式 | 柔和闪屏 | 柔和闪屏 / 确认蒙版 / 系统通知 / 仅声音 |
 | 提醒方式 | 启用声音提醒 | 关闭 | 开 / 关；选择「仅声音」时强制开启 |
-| 通用设置 | 外观 | 跟随系统 | 跟随系统 / 亮色 / 暗色 |
+| 通用设置 | 外观 | 手绘 | 手绘 / 跟随系统 / 亮色 / 暗色 |
 | 通用设置 | 在托盘显示倒计时 | 开启 | 开 / 关 |
 | 通用设置 | 开机启动 | 关闭 | 开 / 关 |
 

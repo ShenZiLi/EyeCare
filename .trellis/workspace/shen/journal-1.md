@@ -350,3 +350,37 @@ Rewrote Chinese README following GitHub official README guidance: product/use/co
 ### Status
 
 [OK] **Completed**
+
+
+## Session 14: 手绘主题实现与完整交付
+<!-- trellis-session: v=2 fp=e5d8eee6369c92e1 -->
+
+**Date**: 2026-10-19
+**Task**: 手绘主题实现与完整交付
+**Branch**: `dev`
+
+### Summary
+
+新增多彩手绘主题，完成原生窗口验收、macOS 应用打包安装和任务归档。
+
+### Main Changes
+
+- 扩展主题契约与严格验证，新增纸纹、彩铅界面、插画提醒和主题预览卡片。
+- 校正默认与最小窗口尺寸，修复原生标题栏占用下的紧凑布局及减少透明度背景。
+- 完成本机应用更新并保留旧版备份；ZIP 和校验和位于 output/handdrawn。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7bbbdba6d63612e1d564bfc001ae839081f67e9c` | feat(theme): 新增多彩手绘主题 |
+
+### Testing
+
+- [OK] 类型检查、代码检查、49 项前端测试和77项 Rust 测试通过。
+- [OK] 原生 GUI：主题保存与重启、提醒预览确认、默认及最小窗口布局通过。
+- [OK] 最终 .app 构建、本地完整签名校验、ZIP 完整性与可执行文件哈希校验通过。
+
+### Status
+
+[OK] **Completed**

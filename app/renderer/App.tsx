@@ -3,7 +3,9 @@ import { LayoutDashboard, Timer, Sparkles, Settings2, Pause, Play, Bell, Power, 
 import { defaultSettings, formatTime, statusLabels, type AppError, type Result, type RuntimeSnapshot, type SettingsV2 } from '../shared/contracts';
 import { applyAppearance, Icon, Modal, Notice } from './components';
 import { TriggerSettings, ReminderSettings, GeneralSettings } from './Settings';
+import { BotanicalDoodle } from './themes';
 import { SettingsEditor } from './settings-editor';
+import overviewGarden from './assets/handdrawn-overview-garden.png';
 
 type Page = 'overview' | 'trigger' | 'reminder' | 'general';
 const pages = [{ id: 'overview', label: '概览', icon: LayoutDashboard }, { id: 'trigger', label: '触发条件', icon: Timer }, { id: 'reminder', label: '提醒方式', icon: Sparkles }, { id: 'general', label: '通用设置', icon: Settings2 }] as const;
@@ -55,7 +57,7 @@ export function App({ tray = false }: { tray?: boolean }) {
   const settingError = editing.failure;
   const resultErrors = snapshot.latestReminderResult?.channels.filter(channel => !channel.success) ?? [];
   if (tray) return <div className="tray-shell"><Brand/><RuntimeDisplay snapshot={snapshot} compact/><RuntimeActions snapshot={snapshot} busy={busy} command={command}/>{error && <Notice error>{error.message}</Notice>}<div className="tray-footer"><button onClick={() => void invoke(() => window.eyeCare.openSettings())}><Icon icon={Settings2}/>打开设置</button><button onClick={() => void invoke(() => window.eyeCare.quit())}><Icon icon={Power}/>退出</button></div></div>;
-  return <div className="app-shell"><aside className="sidebar"><Brand/><nav aria-label="主导航"><span className="nav-lens" aria-hidden="true" style={{ transform: `translateY(${pages.findIndex(item => item.id === page) * 52}px)` }}/>{pages.map(item => <button key={item.id} className={page === item.id ? 'nav-item active' : 'nav-item'} aria-label={item.label} title={item.label} aria-current={page === item.id ? 'page' : undefined} onClick={() => navigate(item.id)}><Icon icon={item.icon}/><span>{item.label}</span>{page === item.id && <span className="nav-mark"/>}</button>)}</nav></aside>
+  return <div className="app-shell"><aside className="sidebar"><Brand/><nav aria-label="主导航"><span className="nav-lens" aria-hidden="true" style={{ transform: `translateY(${pages.findIndex(item => item.id === page) * 52}px)` }}/>{pages.map(item => <button key={item.id} className={page === item.id ? 'nav-item active' : 'nav-item'} aria-label={item.label} title={item.label} aria-current={page === item.id ? 'page' : undefined} onClick={() => navigate(item.id)}><Icon icon={item.icon}/><span>{item.label}</span>{page === item.id && <span className="nav-mark"/>}</button>)}</nav><BotanicalDoodle/></aside>
     <main className="main-content"><header className="page-heading"><div><h1>{pages.find(item => item.id === page)?.label}</h1>{(page !== 'overview' || editing.pending || editing.failure || editing.unsaved) && <div className="autosave-status" role="status">{editing.pending ? '正在自动保存…' : editing.failure ? '自动保存未完成，输入已保留。' : editing.unsaved ? '标记项尚未生效，请修正输入；其他合法设置已自动保存。' : ''}</div>}</div><div className="status-pill"><span className="status-dot"/>{statusLabels[snapshot.status]}</div></header>
       {snapshot.warnings.filter(warning => warning !== '系统采样延迟超过 5 秒，未知时段未计入活动').map((warning, index) => <Notice key={index}>{warning}</Notice>)}
       {error && <Notice error>{error.message}</Notice>}
@@ -76,10 +78,11 @@ function Brand() { return <div className="brand"><span className="brand-icon"><s
 function RuntimeDisplay({ snapshot, compact = false }: { snapshot: RuntimeSnapshot; compact?: boolean }) {
   const remaining = ['counting', 'short_idle', 'long_idle'].includes(snapshot.status) ? snapshot.remainingMs : null;
   const label = snapshot.status === 'paused' ? '护眼提醒' : '距离下一次提醒';
+  if (snapshot.theme === 'handdrawn' && !compact) return <section className="countdown-card garden-countdown"><img className="garden-illustration" src={overviewGarden} width="1200" height="900" alt="" aria-hidden="true"/><div className="countdown-primary garden-placard"><span className="countdown-label">{label}</span><div className="countdown" aria-label={`${label} ${remaining === null ? statusLabels[snapshot.status] : formatTime(remaining)}`}>{remaining === null ? <span className="countdown-state">{statusLabels[snapshot.status]}</span> : formatTime(remaining)}</div></div></section>;
   return <section className={`countdown-card ${compact ? 'compact' : ''}`}><div className="countdown-primary"><span className="countdown-label">{label}</span><div className="countdown" aria-label={`${label} ${remaining === null ? statusLabels[snapshot.status] : formatTime(remaining)}`}>{remaining === null ? <span className="countdown-state">{statusLabels[snapshot.status]}</span> : formatTime(remaining)}</div></div></section>;
 }
 function RuntimeActions({ snapshot, busy, command }: { snapshot: RuntimeSnapshot; busy: boolean; command: (action: 'resume' | 'remind' | 'pause') => Promise<boolean> }) {
   const paused = snapshot.status === 'paused';
   const suppressed = !['counting', 'short_idle'].includes(snapshot.status);
-  return <div className="runtime-actions"><div className="pause-group">{paused ? <button className="primary" disabled={busy} onClick={() => void command('resume')}><Icon icon={Play}/>恢复提醒</button> : <button disabled={busy} onClick={() => void command('pause')}><Icon icon={Pause}/>暂停</button>}</div><button disabled={busy || suppressed} onClick={() => void command('remind')}><Icon icon={Bell}/>立即提醒</button>{suppressed && snapshot.status !== 'paused' && <p className="hint action-reason">{snapshot.statusReason || `${statusLabels[snapshot.status]}时暂不触发新的提醒。`}</p>}</div>;
+  return <div className="runtime-actions"><div className="pause-group">{paused ? <button className="primary" disabled={busy} onClick={() => void command('resume')}><Icon icon={Play}/>恢复提醒</button> : <button disabled={busy} onClick={() => void command('pause')}><Icon icon={Pause}/>暂停</button>}</div><button className="remind-now" disabled={busy || suppressed} onClick={() => void command('remind')}><Icon icon={Bell}/>立即提醒</button>{suppressed && snapshot.status !== 'paused' && <p className="hint action-reason">{snapshot.statusReason || `${statusLabels[snapshot.status]}时暂不触发新的提醒。`}</p>}</div>;
 }

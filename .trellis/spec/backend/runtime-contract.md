@@ -37,7 +37,7 @@ SettingsV2 has schemaVersion2 plus exactly these fields:
 | timer.longIdleMinutes | integer1..120 | 10 |
 | reminder.visual | flash/mask/notification/none | flash |
 | reminder.soundEnabled | boolean;true when visual=none | false |
-| appearance.theme | system/light/dark | system |
+| appearance.theme | system/light/dark/handdrawn | system |
 | appearance.showTrayCountdown | boolean | true |
 | general.launchAtLogin | boolean | false |
 

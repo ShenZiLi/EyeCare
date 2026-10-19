@@ -7,7 +7,7 @@
 use crate::contracts::{
     resolve_settings, AppError, Capabilities, Channel, ChannelResult, EngineEffect, EngineUpdate,
     PlatformSample, ReminderAction, ReminderEvent, ReminderKind, ReminderOutcome, ReminderResult,
-    RuntimeSnapshot, RuntimeStatus, SettingsV2, Theme, TimerMode, VisualMode,
+    RuntimeSnapshot, RuntimeStatus, SettingsV2, EffectiveTheme, Theme, TimerMode, VisualMode,
 };
 use uuid::Uuid;
 
@@ -180,10 +180,11 @@ impl TimerEngine {
             latest_preview_result: None,
             theme: match self.settings.appearance.theme {
                 crate::contracts::ThemePreference::System => {
-                    self.sample.as_ref().map(|sample| sample.system_theme).unwrap_or(Theme::Light)
+                    self.sample.as_ref().map(|sample| sample.system_theme).unwrap_or(Theme::Light).into()
                 }
-                crate::contracts::ThemePreference::Light => Theme::Light,
-                crate::contracts::ThemePreference::Dark => Theme::Dark,
+                crate::contracts::ThemePreference::Light => EffectiveTheme::Light,
+                crate::contracts::ThemePreference::Dark => EffectiveTheme::Dark,
+                crate::contracts::ThemePreference::Handdrawn => EffectiveTheme::Handdrawn,
             },
             reduce_motion: self.sample.as_ref().is_some_and(|sample| sample.reduce_motion),
             reduce_transparency: self.sample.as_ref().is_some_and(|sample| sample.reduce_transparency),

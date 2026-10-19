@@ -305,6 +305,7 @@ fn accepts_the_documented_defaults_and_rejects_malformed_v2_payloads() {
     let result = validate_settings(&default_value());
     assert!(result.ok);
     assert_eq!(result.value.unwrap(), default_settings());
+    assert_eq!(default_settings().appearance.theme, ThemePreference::Handdrawn);
 
     for value in [json!(null), json!([]), json!({}), json!({ "schemaVersion": 3, "timer": {}, "reminder": {}, "appearance": {}, "general": {} })] {
         assert!(!validate_settings(&value).ok, "应拒绝：{value}");
@@ -545,4 +546,29 @@ fn leaves_the_login_registration_untouched_for_unrelated_saves() {
     });
     assert!(result.ok, "无关设置应正常落盘");
     assert_eq!(*prepares.lock().expect("读取调用次数"), 0);
+}
+
+#[test]
+fn bundled_themes_validate_roundtrip_and_keep_legacy_whitelist_strict() {
+    for theme in ["system", "light", "dark", "handdrawn"] {
+        let dir = TempDir::new();
+        let mut store = SettingsStore::new(dir.path());
+        store.load();
+        let mut value = default_value();
+        value["appearance"]["theme"] = json!(theme);
+        let validated = validate_settings(&value);
+        assert!(validated.ok, "V2 theme {theme}");
+        assert!(store.save(0, &value).ok);
+        let loaded = SettingsStore::new(dir.path()).load();
+        assert_eq!(serde_json::to_value(loaded.settings).unwrap(), value);
+        assert_eq!(loaded.revision, 1);
+        let mut legacy = legacy_value();
+        legacy["appearance"]["theme"] = json!(theme);
+        assert_eq!(validate_legacy_settings(&legacy).ok, theme != "handdrawn");
+    }
+    for theme in ["unknown", "Handdrawn", ""] {
+        let mut value = default_value();
+        value["appearance"]["theme"] = json!(theme);
+        assert!(!validate_settings(&value).ok);
+    }
 }

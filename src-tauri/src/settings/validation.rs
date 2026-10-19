@@ -51,7 +51,8 @@ const MODES: [&str; 2] = ["active", "fixed"];
 /// 视觉提醒候选值。
 const VISUALS: [&str; 4] = ["flash", "mask", "notification", "none"];
 /// 主题候选值。
-const THEMES: [&str; 3] = ["system", "light", "dark"];
+const LEGACY_THEMES: [&str; 3] = ["system", "light", "dark"];
+const THEMES: [&str; 4] = ["system", "light", "dark", "handdrawn"];
 
 /// 构造 V2 校验失败结果。
 fn fail_v2(fields: BTreeMap<String, String>, code: &str) -> CommandResult<SettingsV2> {
@@ -251,7 +252,7 @@ pub fn validate_legacy_settings(value: &Value) -> CommandResult<SettingsV1> {
     if !valid_message(group_value(object, "reminder", "message")) {
         fields.insert("reminder.message".into(), "请输入最多 200 字的单行提醒".into());
     }
-    member(&mut fields, "appearance.theme", group_value(object, "appearance", "theme"), &THEMES);
+    member(&mut fields, "appearance.theme", group_value(object, "appearance", "theme"), &LEGACY_THEMES);
     boolean(&mut fields, "appearance.showTrayCountdown", group_value(object, "appearance", "showTrayCountdown"));
     member(&mut fields, "appearance.reduceMotion", group_value(object, "appearance", "reduceMotion"), &["system", "on"]);
     member(&mut fields, "appearance.reduceTransparency", group_value(object, "appearance", "reduceTransparency"), &["system", "on"]);

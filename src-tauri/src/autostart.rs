@@ -607,8 +607,9 @@ mod tests {
     #[test]
     fn writes_the_original_appimage_path_and_escapes_exec() {
         let folder = TempDir::new();
-        let image = "/home/test/My $Eye`Care\"100%\\.AppImage";
-        let context = linux_context(folder.path(), Some(image));
+        let directory = folder.path().to_string_lossy().replace('\\', "/");
+        let image = format!("{directory}/My $Eye`Care\"100%\\.AppImage");
+        let context = linux_context(folder.path(), Some(&image));
         let exists: ExistsFn = Arc::new({
             let image = image.to_owned();
             move |file: &str| file == image
@@ -617,7 +618,7 @@ mod tests {
         assert_eq!(executable, image);
         let entry = autostart_desktop_entry(&executable).expect("生成自动启动项");
         let exec_line = entry.lines().find(|line| line.starts_with("Exec=")).expect("存在 Exec 行");
-        assert_eq!(exec_line, r#"Exec="/home/test/My \\$Eye\\`Care\\"100%%\\\\.AppImage""#);
+        assert_eq!(exec_line, format!(r#"Exec="{directory}/My \\$Eye\\`Care\\"100%%\\\\.AppImage""#));
 
         let backend: Backend = Arc::new(LinuxLoginBackend::new(&context).expect("解析自动启动项路径"));
         set_launch_at_login(true, &context, &backend, &exists).expect("写入自动启动项");

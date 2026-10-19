@@ -1,0 +1,29 @@
+{
+  "id": "handdrawn-theme",
+  "name": "handdrawn-theme",
+  "title": "新增手绘外观主题",
+  "description": "严格参照已确认的手绘参考图，扩展主题体系并统一设置页及提醒弹窗视觉",
+  "status": "completed",
+  "dev_type": "fullstack",
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "shen",
+  "assignee": "shen",
+  "createdAt": "2026-10-19",
+  "completedAt": "2026-10-19",
+  "branch": "dev",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": "7bbbdba6d63612e1d564bfc001ae839081f67e9c",
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "planning": "User approved final plan with 实现 and authorized full delivery including the presented commit plan with 继续，直至完全交付.",
+    "delivery": "Implemented, independently reviewed, native GUI verified at default/minimum sizes, signed macOS arm64 ZIP validated, installed with backup, work commit complete."
+  }
+}

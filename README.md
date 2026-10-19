@@ -17,7 +17,7 @@
   **English** · <a href="README.zh-CN.md">简体中文</a>
 </div>
 
-![EyeCare overview](docs/images/overview-dark.png)
+![EyeCare hand-drawn overview](docs/images/overview-handdrawn.jpg)
 
 ## Highlights
 
@@ -37,7 +37,7 @@
 | Tray | Live countdown in the menu bar, pause / resume, remind now, settings, quit |
 | Manual pause | Stays paused until you resume, across as long as you leave it |
 | Settings | Eight core options, saved automatically, validated before they hit disk |
-| Appearance | Light, dark or system; Liquid Glass surfaces; respects reduced motion and reduced transparency |
+| Appearance | Hand-drawn by default, with light, dark and system themes; respects reduced motion and reduced transparency |
 
 ## Screenshots
 
@@ -45,13 +45,13 @@ The interface ships in Simplified Chinese.
 
 | Overview (概览) | Trigger conditions (触发条件) |
 | --- | --- |
-| ![Overview](docs/images/overview-dark.png) | ![Trigger conditions](docs/images/trigger-dark.png) |
+| ![Hand-drawn overview](docs/images/overview-handdrawn.jpg) | ![Hand-drawn trigger conditions](docs/images/trigger-handdrawn.jpg) |
 | **Reminder type (提醒方式)** | **General settings (通用设置)** |
-| ![Reminder type](docs/images/reminder-dark.png) | ![General settings](docs/images/general-dark.png) |
+| ![Hand-drawn reminder type](docs/images/reminder-handdrawn.jpg) | ![Hand-drawn general settings](docs/images/general-handdrawn.jpg) |
 
 The acknowledgment panel is the only reminder that replies to you — "Got it" (知道了) records a confirmed break and starts the next cycle:
 
-![Acknowledgment panel](docs/images/overlay-acknowledge-dark.png)
+![Hand-drawn acknowledgment panel](docs/images/overlay-acknowledge-handdrawn.jpg)
 
 ## How a cycle works
 
@@ -99,7 +99,7 @@ Reminders cover every connected display. The built-in sound plays once per cycle
 | Trigger conditions | Idle reset threshold (空闲清零时间) | 10 minutes | Whole minutes, 1–120; shown in accumulated active time mode |
 | Reminder type | Primary visual (主视觉方式) | Gentle screen fade (柔和闪屏) | Gentle screen fade / Acknowledgment panel (确认蒙版) / System notification (系统通知) / Sound only (仅声音) |
 | Reminder type | Enable reminder sound (启用声音提醒) | Off | On / Off; forced on when Sound only is selected |
-| General settings | Theme (外观) | Follow system (跟随系统) | Follow system / Light (亮色) / Dark (暗色) |
+| General settings | Theme (外观) | Hand-drawn (手绘) | Hand-drawn (手绘) / Follow system (跟随系统) / Light (亮色) / Dark (暗色) |
 | General settings | Tray countdown (在托盘显示倒计时) | On | On / Off |
 | General settings | Launch at login (开机启动) | Off | On / Off |
 
