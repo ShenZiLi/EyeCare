@@ -5,6 +5,7 @@ import { applyAppearance, Icon, Modal, Notice } from './components';
 import { TriggerSettings, ReminderSettings, GeneralSettings } from './Settings';
 import { BotanicalDoodle } from './themes';
 import { SettingsEditor } from './settings-editor';
+import overviewGarden from './assets/handdrawn-overview-garden.png';
 
 type Page = 'overview' | 'trigger' | 'reminder' | 'general';
 const pages = [{ id: 'overview', label: '概览', icon: LayoutDashboard }, { id: 'trigger', label: '触发条件', icon: Timer }, { id: 'reminder', label: '提醒方式', icon: Sparkles }, { id: 'general', label: '通用设置', icon: Settings2 }] as const;
@@ -77,10 +78,11 @@ function Brand() { return <div className="brand"><span className="brand-icon"><s
 function RuntimeDisplay({ snapshot, compact = false }: { snapshot: RuntimeSnapshot; compact?: boolean }) {
   const remaining = ['counting', 'short_idle', 'long_idle'].includes(snapshot.status) ? snapshot.remainingMs : null;
   const label = snapshot.status === 'paused' ? '护眼提醒' : '距离下一次提醒';
+  if (snapshot.theme === 'handdrawn' && !compact) return <section className="countdown-card garden-countdown"><img className="garden-illustration" src={overviewGarden} width="1200" height="900" alt="" aria-hidden="true"/><div className="countdown-primary garden-placard"><span className="countdown-label">{label}</span><div className="countdown" aria-label={`${label} ${remaining === null ? statusLabels[snapshot.status] : formatTime(remaining)}`}>{remaining === null ? <span className="countdown-state">{statusLabels[snapshot.status]}</span> : formatTime(remaining)}</div></div></section>;
   return <section className={`countdown-card ${compact ? 'compact' : ''}`}><div className="countdown-primary"><span className="countdown-label">{label}</span><div className="countdown" aria-label={`${label} ${remaining === null ? statusLabels[snapshot.status] : formatTime(remaining)}`}>{remaining === null ? <span className="countdown-state">{statusLabels[snapshot.status]}</span> : formatTime(remaining)}</div></div></section>;
 }
 function RuntimeActions({ snapshot, busy, command }: { snapshot: RuntimeSnapshot; busy: boolean; command: (action: 'resume' | 'remind' | 'pause') => Promise<boolean> }) {
   const paused = snapshot.status === 'paused';
   const suppressed = !['counting', 'short_idle'].includes(snapshot.status);
-  return <div className="runtime-actions"><div className="pause-group">{paused ? <button className="primary" disabled={busy} onClick={() => void command('resume')}><Icon icon={Play}/>恢复提醒</button> : <button disabled={busy} onClick={() => void command('pause')}><Icon icon={Pause}/>暂停</button>}</div><button disabled={busy || suppressed} onClick={() => void command('remind')}><Icon icon={Bell}/>立即提醒</button>{suppressed && snapshot.status !== 'paused' && <p className="hint action-reason">{snapshot.statusReason || `${statusLabels[snapshot.status]}时暂不触发新的提醒。`}</p>}</div>;
+  return <div className="runtime-actions"><div className="pause-group">{paused ? <button className="primary" disabled={busy} onClick={() => void command('resume')}><Icon icon={Play}/>恢复提醒</button> : <button disabled={busy} onClick={() => void command('pause')}><Icon icon={Pause}/>暂停</button>}</div><button className="remind-now" disabled={busy || suppressed} onClick={() => void command('remind')}><Icon icon={Bell}/>立即提醒</button>{suppressed && snapshot.status !== 'paused' && <p className="hint action-reason">{snapshot.statusReason || `${statusLabels[snapshot.status]}时暂不触发新的提醒。`}</p>}</div>;
 }

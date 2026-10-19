@@ -17,6 +17,8 @@ Each theme extends shared tokens using data-theme selectors; handdrawn lives in 
 
 Handdrawn is a fixed light-paper presentation independent of OS palette. OS light/dark observations remain separate. Styling must not affect the parser-transparent overlay/flash background. Mask playback remains keyed only by event ID/generation; live appearance refresh cannot restart it.
 
+The noncompact handdrawn overview follows the selected Garden Companion design: handdrawn-overview-garden.png supplies the character, foliage and empty timer placard, while RuntimeDisplay overlays real snapshot-derived label/time/status text. Never bake a sample time into this asset or change timer/action eligibility for the illustration. Other themes and the compact tray retain the original presentation. Size the4:3 artwork against actual renderer height, reserving room for44px actions and suppression reasons at the native minimum frame.
+
 ## 4. Validation and Error Matrix
 
 | Condition | Behavior |

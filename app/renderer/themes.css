@@ -97,6 +97,44 @@
 :root[data-theme="handdrawn"] .countdown-card::before { border: 2px solid #b5c995; box-shadow: 2px 2px 0 #dce4c5; inset: 30px 10%; border-radius: 49% 51% 47% 53%; transform: rotate(-8deg); }
 :root[data-theme="handdrawn"] .countdown-primary { background: #f8e5a8; border: 1px solid #c6a969; box-shadow: inset 0 0 0 5px #fff2cd; border-radius: 48% 52% 49% 51%; }
 :root[data-theme="handdrawn"] .countdown-primary::before { border-color: #e0c88e; }
+/* The illustration owns the pencil placard; its countdown remains live, selectable text. */
+:root[data-theme="handdrawn"] .garden-countdown {
+  display: block;
+  width: min(100%, calc((100vh - 196px) * 1.333333));
+  aspect-ratio: 4 / 3;
+  min-height: 0;
+  margin-inline: auto;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  container-type: inline-size;
+}
+:root[data-theme="handdrawn"] .garden-countdown::before,
+:root[data-theme="handdrawn"] .garden-placard::before { display: none; }
+.garden-illustration { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: contain; pointer-events: none; }
+:root[data-theme="handdrawn"] .garden-placard {
+  position: absolute;
+  left: 17%;
+  top: 40%;
+  width: 68%;
+  height: 45%;
+  min-height: 0;
+  padding: 5% 5% 7%;
+  gap: 6px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+:root[data-theme="handdrawn"] .garden-placard .countdown-label { font-size: 13px; line-height: 1.5; }
+:root[data-theme="handdrawn"] .garden-placard .countdown { font-size: clamp(40px, 14cqw, 72px); min-height: 0; font-weight: 600; letter-spacing: -.035em; }
+:root[data-theme="handdrawn"] .garden-placard .countdown-state { font-size: clamp(20px, 6cqw, 28px); letter-spacing: 0; line-height: 1.4; }
+:root[data-theme="handdrawn"] .garden-countdown + .runtime-actions { margin-block: 8px; padding-inline: 4px; gap: 6px; }
+:root[data-theme="handdrawn"] .garden-countdown + .runtime-actions .action-reason { margin-top: 0; line-height: 1.4; }
+:root[data-theme="handdrawn"] .garden-countdown + .runtime-actions .remind-now { background: #f8d77e; color: #493b2f; border: 1.5px solid #86693f; box-shadow: 1px 3px 0 #b89a654d, inset 0 0 0 2px #fff4ca; font-weight: 600; }
+:root[data-theme="handdrawn"] .garden-countdown + .runtime-actions .remind-now:hover:not(:disabled) { background: #f5cd66; }
 :root[data-theme="handdrawn"] :is(.modal-panel,.rest-panel) { background: var(--surface) url('./assets/handdrawn-paper.png') center / 512px; border: 2px solid #8d7659; border-radius: 22px 17px 24px 18px; backdrop-filter: none; box-shadow: 2px 3px 0 #68513830, inset 0 0 0 3px #e5d9bf; }
 :root[data-theme="handdrawn"] .modal-backdrop { backdrop-filter: none; }
 .rest-artwork { display: block; width: min(100%,360px); height: auto; aspect-ratio: 3/2; object-fit: contain; margin: -12px auto 0; pointer-events: none; }
@@ -125,5 +163,7 @@
 }
 /* Reduced transparency uses opaque paper; no decorative texture is required for meaning. */
 :root[data-theme="handdrawn"][data-transparency="reduced"] :is(.app-shell,.section,.countdown-card,.modal-panel,.rest-panel) { background-image: none; background-color: var(--surface); }
+:root[data-theme="handdrawn"][data-transparency="reduced"] .garden-countdown { background: transparent; }
 @media (prefers-reduced-transparency: reduce) { :root[data-theme="handdrawn"] :is(.app-shell,.section,.countdown-card,.modal-panel,.rest-panel) { background-image: none; background-color: var(--surface); } }
+@media (prefers-reduced-transparency: reduce) { :root[data-theme="handdrawn"] .garden-countdown { background: transparent; } }
 @media (forced-colors: active) { .theme-check { background: Highlight; color: HighlightText; } .theme-preview { forced-color-adjust: none; } }

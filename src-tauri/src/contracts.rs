@@ -301,7 +301,7 @@ pub fn default_settings() -> SettingsV2 {
         schema_version: 2,
         timer: TimerSettings { mode: TimerMode::Active, interval_minutes: 30.0, long_idle_minutes: 10.0 },
         reminder: ReminderSettings { visual: VisualMode::Flash, sound_enabled: false },
-        appearance: AppearanceSettings { theme: ThemePreference::System, show_tray_countdown: true },
+        appearance: AppearanceSettings { theme: ThemePreference::Handdrawn, show_tray_countdown: true },
         general: GeneralSettings { launch_at_login: false },
     }
 }

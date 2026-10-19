@@ -33,7 +33,7 @@ export const defaultSettings = (): SettingsV2 => ({
   schemaVersion: 2,
   timer: { mode: 'active', intervalMinutes: 30, longIdleMinutes: 10 },
   reminder: { visual: 'flash', soundEnabled: false },
-  appearance: { theme: 'system', showTrayCountdown: true },
+  appearance: { theme: 'handdrawn', showTrayCountdown: true },
   general: { launchAtLogin: false },
 });
 export const defaultSettingsV2 = defaultSettings;
