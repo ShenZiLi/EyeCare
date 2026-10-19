@@ -34,7 +34,13 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
-      - run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+      - name: Rust tests
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            export RUSTFLAGS="-C link-arg=/MANIFEST:EMBED -C link-arg=/MANIFESTINPUT:$GITHUB_WORKSPACE/src-tauri/windows-test.manifest"
+          fi
+          cargo test --locked --manifest-path src-tauri/Cargo.toml
       - run: npx tauri build
       - uses: actions/upload-artifact@v4
         with:
