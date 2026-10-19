@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/ui-contract.md", "reason": "Current UI, accessibility, flash and settings invariants; handdrawn extends the old three-theme and neutral-palette scope."}
+{"file": ".trellis/spec/frontend/implementation-guidelines.md", "reason": "Existing autosave and UI quality requirements."}
+{"file": ".trellis/spec/backend/runtime-contract.md", "reason": "Settings persistence, immutable events and runtime ownership."}
+{"file": ".trellis/spec/backend/implementation-guidelines.md", "reason": "Strict validation and native runtime checks."}
+{"file": ".trellis/tasks/10-19-handdrawn-theme/research/findings.md", "reason": "Theme data flow and reference fidelity findings."}
