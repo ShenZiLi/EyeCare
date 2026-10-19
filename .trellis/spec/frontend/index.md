@@ -15,6 +15,7 @@ This directory contains guidelines for frontend development. Fill in each file w
 | Guide | Description | Status |
 |-------|-------------|--------|
 | [UI Contract](./ui-contract.md) | Desktop surfaces, theme and reminder interactions | Implemented; native acceptance pending |
+| [Appearance Themes](./appearance-themes.md) | Bundled theme presentation, assets and visual acceptance | Implemented |
 | [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
 | [Component Guidelines](./component-guidelines.md) | Component patterns, props, composition | To fill |
 | [Hook Guidelines](./hook-guidelines.md) | Custom hooks, data fetching patterns | To fill |

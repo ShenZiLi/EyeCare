@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import type { OverlayState, ReminderAction } from '../shared/contracts';
 import { applyAppearance, Icon } from './components';
+import restArtwork from './assets/handdrawn-rest.png';
 import gentle from './assets/gentle.wav?url';
 import { startOverlayPlayback } from './overlay-playback';
 
@@ -53,5 +54,5 @@ function OverlayEvent({ state }: { state: OverlayState }) {
   }, [event.id, event.generation]);
   if (settings.visual === 'flash') return <div ref={flash} className="flash-overlay" style={{ backgroundColor: settings.flashColor }} aria-hidden="true"/>;
   if (!mask) return null;
-  return <div className="rest-backdrop"><div className="rest-panel" ref={panel} role="dialog" aria-modal="true" aria-labelledby="rest-title"><button className="rest-skip icon-button" aria-label="跳过本次提醒" disabled={busy} onClick={() => void resolve('skip')}><Icon icon={X}/></button><span className="rest-icon"><span className="rest-mark" aria-hidden="true"/></span><span className="eyebrow">{event.kind === 'preview' ? '提醒效果预览' : '给视线一点休息'}</span><h1 id="rest-title">{settings.message}</h1>{error && <p className="field-error" role="alert">{error}</p>}<div className="rest-actions"><button className="primary" disabled={busy} onClick={() => void resolve('acknowledge')}>知道了</button></div></div></div>;
+  return <div className="rest-backdrop"><div className="rest-panel" ref={panel} role="dialog" aria-modal="true" aria-labelledby="rest-title"><button className="rest-skip icon-button" aria-label="跳过本次提醒" disabled={busy} onClick={() => void resolve('skip')}><Icon icon={X}/></button>{state.theme === 'handdrawn' ? <img className="rest-artwork" src={restArtwork} width="360" height="240" alt="" aria-hidden="true"/> : <span className="rest-icon"><span className="rest-mark" aria-hidden="true"/></span>}<span className="eyebrow">{event.kind === 'preview' ? '提醒效果预览' : '给视线一点休息'}</span><h1 id="rest-title">{settings.message}</h1>{error && <p className="field-error" role="alert">{error}</p>}<div className="rest-actions"><button className="primary" disabled={busy} onClick={() => void resolve('acknowledge')}>知道了</button></div></div></div>;
 }

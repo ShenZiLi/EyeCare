@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { Bell, Eye, Laptop, Moon, RotateCcw, ShieldCheck, Sparkles, Sun, Volume2 } from 'lucide-react';
+import { Bell, Eye, RotateCcw, ShieldCheck, Sparkles, Volume2 } from 'lucide-react';
 import type { Capabilities, RuntimeSnapshot, SettingsV2 } from '../shared/contracts';
+import { ThemeChoices } from './themes';
 import { Field, Icon, Notice, Section, Toggle } from './components';
 
 type Props = { draft: SettingsV2; setDraft: Dispatch<SetStateAction<SettingsV2 | null>>; snapshot: RuntimeSnapshot; errors?: Record<string, string> };
@@ -25,11 +26,10 @@ export function ReminderSettings({ draft, setDraft, snapshot, errors, onPreview,
 
 export function GeneralSettings({ setDraft, snapshot, errors, busy, restore }: Props & { busy: boolean; restore: () => void }) {
   const update = updater(setDraft);
-  const themes = [{ id: 'system', label: '跟随系统', icon: Laptop }, { id: 'light', label: '亮色', icon: Sun }, { id: 'dark', label: '暗色', icon: Moon }] as const;
   const capabilityLabels: Record<keyof Capabilities, string> = { input: '输入检测', mouse: '鼠标检测', lock: '锁屏检测', overlay: '全屏提醒', notification: '系统通知', tray: '系统托盘', launchAtLogin: '开机启动' };
   const capabilityStates = { available: '可用', unsupported: '不支持', permission_required: '需要权限', error: '异常', unknown: '未确认' };
   const abnormalities = (Object.keys(capabilityLabels) as (keyof Capabilities)[]).filter(key => key !== 'mouse' && snapshot.capabilities[key].state !== 'available');
-  return <><Section title="外观"><div className="theme-choices" role="group" aria-label="应用主题">{themes.map(theme => <button key={theme.id} className={snapshot.settings.appearance.theme === theme.id ? 'selected' : ''} aria-pressed={snapshot.settings.appearance.theme === theme.id} onClick={() => update('appearance', 'theme', theme.id)}><Icon icon={theme.icon}/>{theme.label}</button>)}</div></Section>
+  return <><Section title="外观"><ThemeChoices value={snapshot.settings.appearance.theme} onChange={value => update('appearance', 'theme', value)}/></Section>
     <Section title="常驻与启动"><Toggle label="在托盘显示倒计时" checked={snapshot.settings.appearance.showTrayCountdown} onChange={value => update('appearance', 'showTrayCountdown', value)}/><Toggle label="开机启动" hint={snapshot.capabilities.launchAtLogin.state === 'available' ? undefined : snapshot.capabilities.launchAtLogin.reason} checked={snapshot.settings.general.launchAtLogin} disabled={snapshot.capabilities.launchAtLogin.state !== 'available'} onChange={value => update('general', 'launchAtLogin', value)}/>{errors?.['general.launchAtLogin'] && <p className="field-error" role="alert">{errors['general.launchAtLogin']}</p>}</Section>
     {abnormalities.length > 0 && <Section title="系统能力"><div className="capability-list">{abnormalities.map(key => <div className="capability-row" key={key}><div><Icon icon={ShieldCheck} size={18}/><strong>{capabilityLabels[key]}</strong></div><span className={`capability-tag ${snapshot.capabilities[key].state}`}>{capabilityStates[snapshot.capabilities[key].state]}</span><p>{snapshot.capabilities[key].reason}</p></div>)}</div></Section>}<div className="preview-bar"><button disabled={busy} onClick={restore}><Icon icon={RotateCcw}/>恢复默认</button></div></>;
 }

@@ -14,7 +14,7 @@ use tauri::menu::{Menu, MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Wry};
 
-use crate::contracts::{format_time, status_label, RuntimeSnapshot, RuntimeStatus, Theme};
+use crate::contracts::{format_time, status_label, RuntimeSnapshot, RuntimeStatus, EffectiveTheme};
 
 /// 托盘标识；`tray_by_id` 与菜单事件都依赖这个稳定标识。
 pub const TRAY_ID: &str = "eyecare-tray";
@@ -120,7 +120,7 @@ impl TrayPresenter {
         } else {
             "-".to_string()
         };
-        let dark = snapshot.theme == Theme::Dark;
+        let dark = snapshot.theme == EffectiveTheme::Dark;
         let darwin = cfg!(target_os = "macos");
         // macOS 图标恒为标准图、倒计时落在标题上；其余平台在数字图标与眼睛图标之间切换。
         let key = if darwin {

@@ -81,6 +81,21 @@ pub enum Theme {
     Dark,
 }
 
+/// Effective application appearance, distinct from OS-observed light/dark.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EffectiveTheme {
+    Light,
+    Dark,
+    Handdrawn,
+}
+
+impl From<Theme> for EffectiveTheme {
+    fn from(theme: Theme) -> Self {
+        match theme { Theme::Light => Self::Light, Theme::Dark => Self::Dark }
+    }
+}
+
 /// 锁屏状态。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -165,6 +180,7 @@ pub enum ThemePreference {
     System,
     Light,
     Dark,
+    Handdrawn,
 }
 
 /// 定时相关设置。
@@ -455,7 +471,7 @@ pub struct RuntimeSnapshot {
     pub current_reminder_id: Option<String>,
     pub current_preview_id: Option<String>,
     pub latest_preview_result: Option<PreviewResult>,
-    pub theme: Theme,
+    pub theme: EffectiveTheme,
     pub reduce_motion: bool,
     pub reduce_transparency: bool,
     pub capabilities: Capabilities,
@@ -523,7 +539,7 @@ impl<T> CommandResult<T> {
 #[serde(rename_all = "camelCase")]
 pub struct OverlayState {
     pub event: ReminderEvent,
-    pub theme: Theme,
+    pub theme: EffectiveTheme,
     pub reduce_motion: bool,
     pub reduce_transparency: bool,
 }

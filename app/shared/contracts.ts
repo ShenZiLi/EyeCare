@@ -1,3 +1,7 @@
+export const THEME_PREFERENCES = ['system', 'light', 'dark', 'handdrawn'] as const;
+export type ThemePreference = typeof THEME_PREFERENCES[number];
+/** OS samples remain light/dark; this type describes application presentation. */
+export type EffectiveTheme = Exclude<ThemePreference, 'system'>;
 export type CapabilityState = 'available' | 'unsupported' | 'permission_required' | 'error' | 'unknown';
 export interface Capability { state: CapabilityState; reason: string }
 export interface Capabilities { input: Capability; mouse: Capability; lock: Capability; overlay: Capability; notification: Capability; tray: Capability; launchAtLogin: Capability }
@@ -15,7 +19,7 @@ export interface SettingsV2 {
   schemaVersion: 2;
   timer: { mode: 'active' | 'fixed'; intervalMinutes: number; longIdleMinutes: number };
   reminder: { visual: 'flash' | 'mask' | 'notification' | 'none'; soundEnabled: boolean };
-  appearance: { theme: 'system' | 'light' | 'dark'; showTrayCountdown: boolean };
+  appearance: { theme: ThemePreference; showTrayCountdown: boolean };
   general: { launchAtLogin: boolean };
 }
 export const PRODUCT_DEFAULTS = Object.freeze({
@@ -57,12 +61,12 @@ export interface ReminderEvent { id: string; generation: number; kind: 'real' | 
 export interface ChannelResult { channel: 'visual' | 'sound'; success: boolean; message: string }
 export interface ReminderResult { id: string; outcome: 'automatic' | 'acknowledge' | 'skip' | 'cancelled' | 'failed'; channels: ChannelResult[] }
 export interface PreviewResult { id: string; outcome: ReminderResult['outcome']; channels: ChannelResult[] }
-export interface RuntimeSnapshot { settingsRevision: number; settings: SettingsV2; sequence: number; status: RuntimeStatus; statusReason: string; elapsedActiveMs: number; remainingMs: number | null; currentReminderId: string | null; currentPreviewId: string | null; latestPreviewResult: PreviewResult | null; theme: 'light' | 'dark'; reduceMotion: boolean; reduceTransparency: boolean; capabilities: Capabilities; displays: DisplayInfo[]; latestReminderResult: ReminderResult | null; restConfirmedCount: number; warnings: string[] }
+export interface RuntimeSnapshot { settingsRevision: number; settings: SettingsV2; sequence: number; status: RuntimeStatus; statusReason: string; elapsedActiveMs: number; remainingMs: number | null; currentReminderId: string | null; currentPreviewId: string | null; latestPreviewResult: PreviewResult | null; theme: EffectiveTheme; reduceMotion: boolean; reduceTransparency: boolean; capabilities: Capabilities; displays: DisplayInfo[]; latestReminderResult: ReminderResult | null; restConfirmedCount: number; warnings: string[] }
 export type EngineEffect = { type: 'present'; reminder: ReminderEvent } | { type: 'cancel'; id: string; generation: number } | { type: 'rest_confirmed'; id: string };
 export interface EngineUpdate { snapshot: RuntimeSnapshot; effects: EngineEffect[] }
 export interface AppError { code: string; message: string; fields?: Record<string, string>; currentRevision?: number }
 export type Result<T> = { ok: true; value: T } | { ok: false; error: AppError };
-export interface OverlayState { event: ReminderEvent; theme: 'light' | 'dark'; reduceMotion: boolean; reduceTransparency: boolean }
+export interface OverlayState { event: ReminderEvent; theme: EffectiveTheme; reduceMotion: boolean; reduceTransparency: boolean }
 export interface EyeCareBridge {
   getSnapshot(): Promise<RuntimeSnapshot>;
   subscribeSnapshot(listener: (snapshot: RuntimeSnapshot) => void): () => void;

@@ -562,12 +562,12 @@ fn timer_changes_await_immutable_live_reminder_completion_while_theme_applies_im
 fn system_theme_reacts_immediately_and_manual_override_persists() {
     let mut harness = Harness::new(default_settings());
     harness.run(10, |_| {});
-    assert_eq!(harness.advance(1_000, |sample| sample.system_theme = Theme::Dark).snapshot.theme, Theme::Dark);
+    assert_eq!(harness.advance(1_000, |sample| sample.system_theme = Theme::Dark).snapshot.theme, EffectiveTheme::Dark);
 
     let mut settings = default_settings();
     settings.appearance.theme = crate::contracts::ThemePreference::Light;
     let manual = harness.engine.update_settings(settings.clone(), 1, None);
-    assert_eq!(manual.snapshot.theme, Theme::Light);
+    assert_eq!(manual.snapshot.theme, EffectiveTheme::Light);
     assert_eq!(manual.snapshot.elapsed_active_ms, 11_000);
     assert!(!manual.snapshot.reduce_motion);
 
@@ -577,9 +577,39 @@ fn system_theme_reacts_immediately_and_manual_override_persists() {
     });
     assert!(reduced.snapshot.reduce_motion);
     assert!(reduced.snapshot.reduce_transparency);
-    assert_eq!(harness.advance(1_000, |sample| sample.system_theme = Theme::Dark).snapshot.theme, Theme::Light);
+    assert_eq!(harness.advance(1_000, |sample| sample.system_theme = Theme::Dark).snapshot.theme, EffectiveTheme::Light);
 
     settings.appearance.theme = crate::contracts::ThemePreference::System;
-    assert_eq!(harness.engine.update_settings(settings, 2, None).snapshot.theme, Theme::Dark);
+    assert_eq!(harness.engine.update_settings(settings, 2, None).snapshot.theme, EffectiveTheme::Dark);
     assert_eq!(harness.engine.get_snapshot().elapsed_active_ms, 12_000);
+}
+
+#[test]
+fn handdrawn_is_independent_of_os_palette_and_preserves_timer_and_event_identity() {
+    let mut settings = minute_settings(TimerMode::Active);
+    settings.reminder.visual = VisualMode::Mask;
+    let mut harness = Harness::new(settings.clone());
+    harness.run(20, |_| {});
+    let before = harness.engine.get_snapshot();
+    settings.appearance.theme = crate::contracts::ThemePreference::Handdrawn;
+    let switched = harness.engine.update_settings(settings.clone(), 1, None);
+    assert_eq!(switched.snapshot.theme, EffectiveTheme::Handdrawn);
+    assert_eq!(switched.snapshot.remaining_ms, before.remaining_ms);
+    assert_eq!(switched.snapshot.elapsed_active_ms, before.elapsed_active_ms);
+    assert!(switched.effects.is_empty());
+    let sampled = harness.advance(1_000, |sample| sample.system_theme = Theme::Dark);
+    assert_eq!(sampled.snapshot.theme, EffectiveTheme::Handdrawn);
+    assert_eq!(sampled.snapshot.elapsed_active_ms, 21_000);
+    let event = assert_presents(&harness.engine.remind_now(None));
+    settings.appearance.theme = crate::contracts::ThemePreference::Light;
+    let changed = harness.engine.update_settings(settings.clone(), 2, None);
+    assert_eq!(changed.snapshot.current_reminder_id.as_deref(), Some(event.id.as_str()));
+    assert!(changed.effects.is_empty());
+    assert_eq!(harness.engine.reminder.as_ref().unwrap(), &event);
+    assert_eq!(event.settings.appearance.theme, crate::contracts::ThemePreference::Handdrawn);
+    settings.appearance.theme = crate::contracts::ThemePreference::Handdrawn;
+    let again = harness.engine.update_settings(settings, 3, None);
+    assert_eq!(again.snapshot.current_reminder_id.as_deref(), Some(event.id.as_str()));
+    assert!(again.effects.is_empty());
+    assert_eq!(harness.engine.reminder.as_ref().unwrap().generation, event.generation);
 }

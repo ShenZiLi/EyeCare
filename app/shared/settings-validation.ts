@@ -1,4 +1,4 @@
-import type { Result, SettingsV2 } from './contracts';
+import { THEME_PREFERENCES, type Result, type SettingsV2 } from './contracts';
 
 const shape = { timer: ['mode', 'intervalMinutes', 'longIdleMinutes'], reminder: ['visual', 'soundEnabled'], appearance: ['theme', 'showTrayCountdown'], general: ['launchAtLogin'] };
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -17,12 +17,12 @@ export function validateSettings(value: unknown): Result<SettingsV2> {
   }
   if (Object.keys(fields).length) return fail();
   const timer = value.timer as Record<string, unknown>, reminder = value.reminder as Record<string, unknown>, appearance = value.appearance as Record<string, unknown>, general = value.general as Record<string, unknown>;
-  const member = (path: string, candidate: unknown, choices: unknown[]) => { if (!choices.includes(candidate)) fields[path] = '请选择有效选项'; };
+  const member = (path: string, candidate: unknown, choices: readonly unknown[]) => { if (!choices.includes(candidate)) fields[path] = '请选择有效选项'; };
   const integer = (path: string, candidate: unknown, max: number) => { if (typeof candidate !== 'number' || !Number.isInteger(candidate) || candidate < 1 || candidate > max) fields[path] = `请输入 1–${max} 范围内的整数`; };
   const boolean = (path: string, candidate: unknown) => { if (typeof candidate !== 'boolean') fields[path] = '必须为开关值'; };
   member('timer.mode', timer.mode, ['active', 'fixed']); integer('timer.intervalMinutes', timer.intervalMinutes, 240); integer('timer.longIdleMinutes', timer.longIdleMinutes, 120);
   member('reminder.visual', reminder.visual, ['flash', 'mask', 'notification', 'none']); boolean('reminder.soundEnabled', reminder.soundEnabled);
-  member('appearance.theme', appearance.theme, ['system', 'light', 'dark']); boolean('appearance.showTrayCountdown', appearance.showTrayCountdown); boolean('general.launchAtLogin', general.launchAtLogin);
+  member('appearance.theme', appearance.theme, THEME_PREFERENCES); boolean('appearance.showTrayCountdown', appearance.showTrayCountdown); boolean('general.launchAtLogin', general.launchAtLogin);
   if (Object.keys(fields).length) return fail();
   if (reminder.visual === 'none' && !reminder.soundEnabled) { fields['reminder.soundEnabled'] = '至少启用一种提醒方式'; return fail('NO_REMINDER_CHANNEL'); }
   return { ok: true, value: structuredClone(value) as unknown as SettingsV2 };

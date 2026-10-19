@@ -19,6 +19,17 @@ describe('SettingsV2 strict trust boundary', () => {
     expect(validateSettings(Object.create(settings)).ok).toBe(false);
     expect(validateSettings({ ...settings, timer: Object.create(settings.timer) }).ok).toBe(false);
   });
+  it.each(['system', 'light', 'dark', 'handdrawn'] as const)('accepts bundled theme %s and preserves fixed reminder defaults', theme => {
+    const settings = defaultSettings(); settings.appearance.theme = theme;
+    expect(validateSettings(settings)).toEqual({ ok: true, value: settings });
+    const resolved = resolveSettings(settings);
+    expect(resolved.appearance.theme).toBe(theme);
+    expect(resolved.reminder.flashColor).toBe('#000000');
+    expect(resolved.reminder.flashOpacityPercent).toBe(90);
+  });
+  it.each(['unknown', 'Handdrawn', '', null, 1])('rejects unsupported theme %j', theme => {
+    expect(validateSettings({ ...defaultSettings(), appearance: { theme, showTrayCountdown: true } })).toMatchObject({ ok: false, error: { fields: { 'appearance.theme': expect.any(String) } } });
+  });
   it('rejects fractional, NaN and overflow values rather than silently coercing', () => {
     for (const intervalMinutes of [0, 241, 1.5, NaN, Infinity, '30']) expect(validateSettings({ ...defaultSettings(), timer: { ...defaultSettings().timer, intervalMinutes } }).ok).toBe(false);
     for (const longIdleMinutes of [0, 121, 1.5, NaN, '10']) expect(validateSettings({ ...defaultSettings(), timer: { ...defaultSettings().timer, longIdleMinutes } }).ok).toBe(false);
