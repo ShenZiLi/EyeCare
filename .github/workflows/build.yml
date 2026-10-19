@@ -39,8 +39,10 @@ jobs:
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             export RUSTFLAGS="-C link-arg=/MANIFEST:EMBED -C link-arg=/MANIFESTINPUT:$GITHUB_WORKSPACE/src-tauri/windows-test.manifest"
+            cargo test --lib --locked --manifest-path src-tauri/Cargo.toml
+          else
+            cargo test --locked --manifest-path src-tauri/Cargo.toml
           fi
-          cargo test --locked --manifest-path src-tauri/Cargo.toml
       - run: npx tauri build
       - uses: actions/upload-artifact@v4
         with:
