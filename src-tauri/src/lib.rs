@@ -387,6 +387,43 @@ fn set_dock_visible(handle: &AppHandle, visible: bool) {
     if let Err(error) = handle.set_dock_visibility(visible) {
         log::warn!("Dock 图标显隐切换失败：{error}");
     }
+    // 切换 activation policy 会重建菜单栏，macOS 借此回收本进程的 NSStatusItem。
+    // 托盘一旦丢失，`TrayPresenter::update` 里的 `tray_by_id` 全部落空，图标永久消失，
+    // 用户也就失去唯一入口，因此每次切换后都做一次自愈。
+    ensure_tray(handle);
+}
+
+/// 托盘自愈：确认菜单栏图标仍在，丢失则就地重建。
+///
+/// 托盘 setter 只能在主线程调用，这里统一投递；[`ensure_tray_on_main`] 幂等，
+/// 重复投递不会重复重建。
+fn ensure_tray(handle: &AppHandle) {
+    if !cfg!(target_os = "macos") {
+        return;
+    }
+    let main_handle = handle.clone();
+    let _ = handle.run_on_main_thread(move || ensure_tray_on_main(&main_handle));
+}
+
+/// [`ensure_tray`] 的主线程实现。必须在主线程调用。
+fn ensure_tray_on_main(handle: &AppHandle) {
+    let state = handle.state::<AppState>();
+    // 启动期就没建起托盘的平台不在此重试：那条路径由 `tray_available` 降级为主窗口可访问。
+    if !state.tray_available.load(Ordering::SeqCst) || tray::TrayPresenter::exists(handle) {
+        return;
+    }
+    if !tray::TrayPresenter::create(handle) {
+        log::warn!("托盘丢失后重建失败，菜单栏图标仍不可用");
+        return;
+    }
+    log::info!("检测到托盘在 Dock 显隐切换后丢失，已重建");
+    // 新建的托盘既没有图形也没有菜单，清空缓存键让下面的刷新强制重新下发。
+    lock(&state.tray).reset();
+    let snapshot = {
+        let engine = lock(&state.engine);
+        presented_snapshot(&state, &engine.get_snapshot())
+    };
+    lock(&state.tray).update(handle, &snapshot);
 }
 
 /// 非 macOS 平台没有 Dock 图标，显隐请求直接忽略。
@@ -441,6 +478,17 @@ fn hide_main_dock_on_main(handle: &AppHandle) {
         return;
     }
     set_dock_visible(handle, false);
+    // 这里必须同步自愈（本函数已在主线程），才能确定「隐藏 Dock 之后托盘是否还活着」。
+    ensure_tray_on_main(handle);
+    if !tray::TrayPresenter::exists(handle) {
+        // 隐藏 Dock 意味着菜单栏图标是唯一入口；重建仍失败时宁可把 Dock 图标放回去，
+        // 否则主窗口一关就彻底失联（菜单点不到，`ExitRequested` 还会阻止退出）。
+        log::warn!("隐藏 Dock 后托盘仍不可用，回滚以保留可见入口");
+        if let Err(error) = handle.set_dock_visibility(true) {
+            log::warn!("Dock 图标回滚失败：{error}");
+        }
+        state.dock_hidden.store(false, Ordering::SeqCst);
+    }
     state.last_dock_transition_ms.store(state.elapsed_ms(), Ordering::SeqCst);
 }
 
@@ -907,11 +955,12 @@ pub fn run() {
             quit
         ])
         .setup(|app| {
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build(),
-                )?;
-            }
+            // 托盘在部分 macOS 版本上会静默消失，正式包也必须留下排障线索，
+            // 因此日志插件不再只在 debug 构建挂载。
+            // 日志量极小（只在生命周期事件与异常时写入），不存在占满磁盘的风险。
+            app.handle().plugin(
+                tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build(),
+            )?;
             app.manage(load_state(app));
             let handle = app.handle().clone();
             // 对齐 Electron 的 `notice.on('click', openHome)`：点击通知回到主窗口。
