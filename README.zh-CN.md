@@ -166,7 +166,7 @@ Windows 与 Linux 的完整对等——物理锁屏与睡眠、多屏覆盖、�
 ## 隐私
 
 - EyeCare 只读取系统活动与空闲状态，不记录按键内容、鼠标轨迹或屏幕图像，也不发起网络请求。
-- 设置保存在 Tauri 应用数据目录 `org.eyecare.desktop` 下的 `settings.json`；首次运行会从旧 EyeCare 目录导入已有配置。
+- 设置保存在 Tauri 应用数据目录 `org.eyecare.app` 下的 `settings.json`；首次运行会从旧 EyeCare 目录导入已有配置。
 - 最后一份有效配置留存为 `settings.last-good.json`；升级旧配置前会先保留为 `settings.v1-backup.json`。
 - 从旧版本升级会保留这八项核心选择，已退役的高级参数不再影响运行行为。
 - 重启后恢复设置并重新开始一轮计时，关闭期间错过的提醒不会补发。

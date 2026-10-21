@@ -168,7 +168,7 @@ Full parity on Windows and Linux — physical lock and sleep detection, multi-di
 ## Privacy
 
 - EyeCare reads system activity and idle state only. It never records keystroke content, pointer trajectories or screen images, and it makes no network requests.
-- Settings live in `settings.json` inside Tauri's application data directory for `org.eyecare.desktop`. On first run the app imports an existing configuration from the legacy EyeCare directory.
+- Settings live in `settings.json` inside Tauri's application data directory for `org.eyecare.app`. On first run the app imports an existing configuration from the legacy EyeCare directory.
 - The last valid configuration is kept as `settings.last-good.json`; a legacy file is preserved as `settings.v1-backup.json` before it is upgraded.
 - Upgrading from an older version keeps your eight core choices; retired advanced parameters no longer affect runtime behaviour.
 - Restarting restores your settings and starts a fresh cycle. Reminders missed while the app was closed are not replayed.

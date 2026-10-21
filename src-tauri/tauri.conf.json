@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "EyeCare",
-  "version": "1.0.3",
-  "identifier": "org.eyecare.desktop",
+  "version": "1.0.4",
+  "identifier": "org.eyecare.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",

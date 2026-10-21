@@ -14,10 +14,15 @@ use tauri::menu::{Menu, MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Wry};
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use crate::contracts::{format_time, status_label, RuntimeSnapshot, RuntimeStatus, EffectiveTheme};
 
 /// 托盘标识；`tray_by_id` 与菜单事件都依赖这个稳定标识。
 pub const TRAY_ID: &str = "eyecare-tray";
+
+/// 「托盘对象丢失」是否已经记过一次日志；`update` 每秒执行，需要限流。
+static TRAY_MISSING_LOGGED: AtomicBool = AtomicBool::new(false);
 
 /// 状态栏菜单项（禁用态，仅作标题展示）。
 pub const MENU_STATUS: &str = "tray-status";
@@ -36,13 +41,16 @@ pub const MENU_QUIT: &str = "tray-quit";
 
 /// 浅色标准图标；编译期嵌入，避免 dev 与打包环境下的资源路径差异。
 const REST_LIGHT: &[u8] = include_bytes!("../../resources/tray-rest-light.png");
-/// 深色标准图标，仅非 macOS 使用（macOS 走模板图自动反色）。
+/// 深色标准图标：近白色的眼睛，供非 macOS 平台的深色外观使用。
 const REST_DARK: &[u8] = include_bytes!("../../resources/tray-rest-dark.png");
 
 /// 标准托盘图标，对应 `presenter.ts#L10-L15` 的 `standardIcon`。
 ///
 /// macOS 侧 tray-icon 会把图标统一缩到 18pt 高再交给状态栏，因此直接交给它解码；
 /// 其余平台按 Electron 的 32px 规则输出，避免原生托盘按 64px 原图展示。
+///
+/// macOS 恒走模板图（只取 alpha 当遮罩），由系统按菜单栏明暗自动反色，因此固定用浅色
+/// 变体——深浅两张图的 alpha 完全一致。其余平台没有模板机制，只能按外观直接换图。
 fn standard_icon(dark: bool) -> Option<Image<'static>> {
     let darwin = cfg!(target_os = "macos");
     let source = if dark && !darwin { REST_DARK } else { REST_LIGHT };
@@ -79,16 +87,25 @@ impl TrayPresenter {
     pub fn create(app: &AppHandle) -> bool {
         let mut builder = TrayIconBuilder::with_id(TRAY_ID)
             .tooltip("EyeCare")
-            // macOS 用模板图随系统主题自动反色；其余平台由显隐逻辑切换深浅图标。
+            // macOS 交给模板图：tray-icon 只取 alpha 当遮罩，由系统按菜单栏明暗反色，
+            // 深色菜单栏自动出白色，浅色菜单栏自动出黑色；其余平台没有模板机制。
             .icon_as_template(cfg!(target_os = "macos"))
             // macOS 点击即弹出已注册菜单；其余平台同样以点击弹菜单对齐 Electron 行为。
             .show_menu_on_left_click(true)
             .on_menu_event(|app, event| crate::handle_tray_menu(app, event.id().as_ref()));
         if let Some(image) = standard_icon(false) {
+            log::info!("托盘图标已解码：{}x{} px", image.width(), image.height());
             builder = builder.icon(image);
+        } else {
+            // 图标解码失败时 status item 会以「无图标、无标题」创建，宽度退化为 0，
+            // 表现为用户完全看不到也点不到，因此这条必须留痕。
+            log::warn!("托盘图标解码失败，将以空图标创建（预计不可见）");
         }
         match builder.build(app) {
-            Ok(_) => true,
+            Ok(tray) => {
+                log::info!("系统托盘已创建：{:?}", tray.id());
+                true
+            }
             Err(error) => {
                 log::warn!("系统托盘不可用：{error}");
                 false
@@ -101,11 +118,35 @@ impl TrayPresenter {
         app.remove_tray_by_id(TRAY_ID);
     }
 
+    /// 托盘对象当前是否仍挂在状态栏上。
+    ///
+    /// macOS 在 activation policy 切换（Dock 图标显隐）时会重建菜单栏并回收本进程的
+    /// NSStatusItem，此时 [`TrayPresenter::update`] 开头的 `tray_by_id` 会返回 `None`
+    /// 并静默跳过，图标就此永久消失。调用方必须在切换后用它确认托盘仍然存在。
+    pub fn exists(app: &AppHandle) -> bool {
+        app.tray_by_id(TRAY_ID).is_some()
+    }
+
+    /// 清空图标与菜单的缓存键。
+    ///
+    /// 托盘重建后，缓存键描述的旧对象已随托盘一起消失，必须清空；否则下一次
+    /// [`TrayPresenter::update`] 会认为「图标与菜单都已是最新」而不再下发，重建出来的
+    /// 托盘会缺图标或缺菜单。
+    pub fn reset(&mut self) {
+        self.icon_key.clear();
+        self.menu_key.clear();
+    }
+
     /// 按快照刷新图标、标题、提示与菜单，对应 `presenter.ts#L27-L56`。必须在主线程调用。
     pub fn update(&mut self, app: &AppHandle, snapshot: &RuntimeSnapshot) {
         let Some(tray) = app.tray_by_id(TRAY_ID) else {
+            // 只在第一次丢失时记日志：刷新是每秒一次，无限流会刷爆日志。
+            if !TRAY_MISSING_LOGGED.swap(true, Ordering::Relaxed) {
+                log::warn!("托盘刷新时找不到托盘对象：图标已从状态栏移除");
+            }
             return;
         };
+        TRAY_MISSING_LOGGED.store(false, Ordering::Relaxed);
         let remaining = snapshot.remaining_ms;
         let showing = snapshot.settings.appearance.show_tray_countdown;
         let state = status_label(snapshot.status);
@@ -123,6 +164,7 @@ impl TrayPresenter {
         let dark = snapshot.theme == EffectiveTheme::Dark;
         let darwin = cfg!(target_os = "macos");
         // macOS 图标恒为标准图、倒计时落在标题上；其余平台在数字图标与眼睛图标之间切换。
+        // 图标键不需要带外观位：macOS 靠模板图让系统反色，深浅切换无需重新下发。
         let key = if darwin {
             if showing { "icon:text".to_string() } else { "icon".to_string() }
         } else {
@@ -137,9 +179,8 @@ impl TrayPresenter {
                 standard_icon(dark)
             };
             if let Some(image) = image {
-                // macOS 必须用原子方法连同模板标志一起下发：模板是 NSImage 自身的属性，
-                // 单独的 `set_icon` 会换成新图并使标志丢失，图标退回原始彩色（深底 + 白眼），
-                // 在深色菜单栏上几乎不可见。非 macOS 平台该方法内部回退为 `set_icon`。
+                // 图标与模板标志必须原子下发：单独 `set_icon` 会重建 NSImage 并丢掉模板
+                // 标志，图标退回原始填充色（深绿实心块），在深色菜单栏上几乎看不见。
                 let _ = tray.set_icon_with_as_template(Some(image), cfg!(target_os = "macos"));
             }
             self.icon_key = key;
