@@ -103,6 +103,19 @@ impl TrayPresenter {
         }
         match builder.build(app) {
             Ok(tray) => {
+                #[cfg(target_os = "macos")]
+                if let Err(error) = tray.with_inner_tray_icon(|inner| {
+                    // 使用系统字体的等宽数字变体，避免每秒更新标题时挤动左侧图标。
+                    // 此闭包由 Tauri 保证在主线程执行；重建托盘时也会重新应用字体。
+                    let Some(mtm) = objc2::MainThreadMarker::new() else { return };
+                    let Some(item) = inner.ns_status_item() else { return };
+                    let Some(button) = item.button(mtm) else { return };
+                    let size = button.font().map_or(0.0, |font| font.pointSize());
+                    let font = objc2_app_kit::NSFont::monospacedDigitSystemFontOfSize_weight(size, 0.0);
+                    button.setFont(Some(&font));
+                }) {
+                    log::warn!("托盘等宽数字字体设置失败：{error}");
+                }
                 log::info!("系统托盘已创建：{:?}", tray.id());
                 true
             }
@@ -187,7 +200,9 @@ impl TrayPresenter {
         }
         if darwin {
             let title = if showing {
-                if counting { format_time(remaining) } else { state.to_string() }
+                let label = if counting { format_time(remaining) } else { state.to_string() };
+                // 固定 en space 留白，给图标和标题增加约半个字号的间距。
+                format!("\u{2002}{label}")
             } else {
                 String::new()
             };

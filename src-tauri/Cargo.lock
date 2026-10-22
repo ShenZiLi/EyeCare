@@ -980,6 +980,8 @@ version = "1.0.4"
 dependencies = [
  "image",
  "log",
+ "objc2",
+ "objc2-app-kit",
  "serde",
  "serde_json",
  "tauri",
