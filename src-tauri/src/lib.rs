@@ -483,10 +483,10 @@ fn hide_main_dock_on_main(handle: &AppHandle) {
     if !tray::TrayPresenter::exists(handle) {
         // 隐藏 Dock 意味着菜单栏图标是唯一入口；重建仍失败时宁可把 Dock 图标放回去，
         // 否则主窗口一关就彻底失联（菜单点不到，`ExitRequested` 还会阻止退出）。
+        // 回滚必须走 [`set_dock_visible`]：`AppHandle::set_dock_visibility` 是 macOS 独有
+        // 方法，直接调用会让 Windows/Linux 编译失败（`E0599`）。
         log::warn!("隐藏 Dock 后托盘仍不可用，回滚以保留可见入口");
-        if let Err(error) = handle.set_dock_visibility(true) {
-            log::warn!("Dock 图标回滚失败：{error}");
-        }
+        set_dock_visible(handle, true);
         state.dock_hidden.store(false, Ordering::SeqCst);
     }
     state.last_dock_transition_ms.store(state.elapsed_ms(), Ordering::SeqCst);
